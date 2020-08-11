@@ -1,0 +1,11 @@
+{
+  "include": [
+    "lib/**/*"
+  ],
+  "exclude": ["src", "types", "node_modules/*", "__sapper__/*", "public/*"],
+  "compilerOptions": {
+    "target": "es6",
+    "lib": ["es2019", "dom", "dom.iterable", "webworker"],
+    "sourceMap": true
+  }
+}
