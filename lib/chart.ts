@@ -75,7 +75,7 @@ export class Chart implements IChart {
     this.abscissaContainer.addEventListener('mousemove', (event) => {
       if (abscissaResizeStarted) {
         let zoomOffset = (event.movementX / this.abscissaContainer.offsetWidth);
-        this.renderingOptions.zoomRatio[0] += zoomOffset;
+        this.renderingOptions.zoomRatio[0] -= zoomOffset;
         this.refreshViews();
       }
     });
@@ -92,7 +92,7 @@ export class Chart implements IChart {
 
     this.ordinatesContainer.addEventListener('mousemove', (event) => {
       if (ordinatesResizeStarted) {
-        let zoomOffset = (event.movementY / this.ordinatesContainer.offsetHeight);
+        let zoomOffset = ((event.movementY * 8) / this.ordinatesContainer.offsetHeight);
         this.renderingOptions.zoomRatio[1] += zoomOffset;
         this.refreshViews();
       }

@@ -1,6 +1,7 @@
 import {IAxisRenderer} from '../api/chart-api';
 import {IAxisProperties, IRenderer, RenderingOptions} from '../api/rendering-api';
 import {ExtendedWilkinson} from '../labeling/ext-wilkinson';
+import {calcX} from '../util/coordinates';
 
 export class AbscissaAxisRenderer implements IAxisRenderer<RenderingOptions> {
   readonly canvas: HTMLCanvasElement;
@@ -59,14 +60,10 @@ class AbscissaLocalAxisRenderer implements IAxisRenderer<RenderingOptions> {
     const range = options.abscissaRange[1] - options.abscissaRange[0];
     const step = actualWidth / range;
 
-    const calcX = (value) => {
-      return (value - options.abscissaRange[0]) * step;
-    };
-
     labelProps.labels.forEach(value => {
       const label = this.formatter(value);
 
-      const xPos = calcX(value) * options.pixelRatio;
+      const xPos = calcX(value, step, options) * options.pixelRatio;
       const yPos = options.displaySize[1] * options.pixelRatio;
 
       ctx.fillText(label, xPos, yPos + 10 * options.pixelRatio);

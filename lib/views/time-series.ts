@@ -1,6 +1,7 @@
 import {DataSourceEvent, EventSource, IChartRenderer, IDataSource} from '../api/chart-api';
 import {Horizontal, IRenderer, Max, Min, RenderingOptions, Vertical} from '../api/rendering-api';
 import {precision} from '../util/numbers';
+import {calcX, calcY} from '../util/coordinates';
 
 type TimeSeriesData = { data: { x: number, y: number }[] }
 
@@ -138,19 +139,11 @@ class TimeSeriesLocalRenderer implements IRenderer<RenderingOptions & TimeSeries
     const rangeAbscissa = options.abscissaRange[1] - options.abscissaRange[0];
     const stepAbscissa = actualWidth / rangeAbscissa;
 
-    const calcY = (value) => {
-      return actualHeight + options.canvasBounds[0] - ((value - options.ordinatesRange[0]) * stepOrdinates);
-    };
-
-    const calcX = (value) => {
-      return options.canvasBounds[2] + (value - options.abscissaRange[0]) * stepAbscissa;
-    };
-
     options.data.filter(({x, y}) => (
-      x >= options.abscissaRange[0] && x <= options.abscissaRange[1]
+      x >= options.abscissaRange[0] - stepAbscissa && x <= options.abscissaRange[1] + stepAbscissa
     )).forEach(({x, y}, idx) => {
-      const yPos = calcY(y) * options.pixelRatio;
-      const xPos = calcX(x) * options.pixelRatio;
+      const yPos = calcY(y, stepOrdinates, options) * options.pixelRatio;
+      const xPos = calcX(x, stepAbscissa, options) * options.pixelRatio;
 
       if (idx === 0) {
         ctx.moveTo(xPos, yPos);
