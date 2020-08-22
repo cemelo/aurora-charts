@@ -20,7 +20,7 @@ export class Chart implements IChart {
 
   constructor(container: HTMLElement) {
     const wrapper = document.createElement('div');
-    wrapper.className = 'au-chart';
+    wrapper.classList.add('au-chart');
 
     container.appendChild(wrapper);
     this.container = wrapper;
@@ -30,10 +30,13 @@ export class Chart implements IChart {
     this.view.style.zIndex = '99999';
 
     this.abscissaContainer = document.createElement('div');
-    this.abscissaContainer.className = 'au-abscissa';
+    this.abscissaContainer.classList.add('au-abscissa');
+    this.abscissaContainer.classList.add('au-container');
+    this.abscissaContainer.classList.add('au-resizeable');
 
     this.ordinatesContainer = document.createElement('div');
-    this.ordinatesContainer.className = 'au-ordinates';
+    this.ordinatesContainer.classList.add('au-ordinates');
+    this.ordinatesContainer.classList.add('au-container');
 
     this.baseRenderer = new ChartBase(this.container);
 
@@ -57,7 +60,7 @@ export class Chart implements IChart {
     this.view.addEventListener('mousedown', (e) => {
       chartMoveStarted = true;
 
-      this.view.classList.add('moving');
+      this.view.classList.add('au-moving');
       this.renderingOptions.cursorPosition = [0, 0];
       requestAnimationFrame(() => this.refreshViews());
 
@@ -80,7 +83,7 @@ export class Chart implements IChart {
 
     this.view.addEventListener('mouseup', (e) => {
       chartMoveStarted = false;
-      this.view.classList.remove('moving');
+      this.view.classList.remove('au-moving');
 
       this.renderingOptions.cursorPosition = [
         e.offsetX,
@@ -91,7 +94,7 @@ export class Chart implements IChart {
 
     this.view.addEventListener('mouseleave', (e) => {
       chartMoveStarted = false;
-      this.view.classList.remove('moving');
+      this.view.classList.remove('au-moving');
 
       this.renderingOptions.cursorPosition = [0, 0];
       requestAnimationFrame(() => this.refreshViews());
@@ -112,7 +115,7 @@ export class Chart implements IChart {
 
     this.abscissaContainer.addEventListener('mousemove', (event) => {
       if (abscissaResizeStarted) {
-        let zoomOffset = (event.movementX / this.abscissaContainer.offsetWidth);
+        let zoomOffset = (event.movementX / (this.abscissaContainer.offsetWidth / this.renderingOptions.pixelRatio));
         this.renderingOptions.zoomRatio[0] -= zoomOffset;
         requestAnimationFrame(() => this.refreshViews());
       }

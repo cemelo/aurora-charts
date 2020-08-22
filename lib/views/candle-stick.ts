@@ -13,7 +13,7 @@ export interface CandleStickOptions {
 
 export class CandleStickSeries extends EventSource<DataSourceEvent> implements IDataSource<CandleStickRecord>, IChartRenderer<RenderingOptions> {
   defaultDistance: [Horizontal, Vertical] = [12, 1];
-  minimumDistance: [Horizontal, Vertical] = [2, 2];
+  minimumDistance: [Horizontal, Vertical] = [6, 2];
 
   private data: CandleStickRecord[] = [];
   private target: IRenderer<RenderingOptions & CandleStickData> & { setOptions(options: CandleStickOptions): void };

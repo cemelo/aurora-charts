@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="./aurora-charts.umd.js"></script>
+    <link rel="stylesheet" href="./aurora-charts.css">
+    <style>
+        html, body {
+            min-height: 100%;
+        }
+
+        #chart {
+            width: 800px;
+            height: 350px;
+        }
+    </style>
+</head>
+<body>
+    <div id="chart"></div>
+    <script type="application/javascript">
+        let chartContainer = document.getElementById('chart');
+        let chart = new auroraCharts(chartContainer);
+        let series = chart.addCandleStickSeries();
+
+        let data = [];
+
+        function randomIntFromInterval(min, max) { // min and max included
+            return Math.floor(Math.random() * (max - min + 1) + min);
+        }
+
+        for (let i = 0; i <= 50; i++) {
+            const minMax1 = randomIntFromInterval(25, 75);
+            const minMax2 = randomIntFromInterval(25, 75);
+
+            const min = Math.min(minMax1, minMax2);
+            const max = Math.max(minMax1, minMax2);
+
+            const open = randomIntFromInterval(min, max);
+            const close = randomIntFromInterval(min, max);
+
+            data.push({timestamp: i, open, close, low: min, high: max });
+        }
+
+        for (let i = 51; i <= 100; i++) {
+            const minMax1 = randomIntFromInterval(1, 100);
+            const minMax2 = randomIntFromInterval(1, 100);
+
+            const min = Math.min(minMax1, minMax2);
+            const max = Math.max(minMax1, minMax2);
+
+            const open = randomIntFromInterval(min, max);
+            const close = randomIntFromInterval(min, max);
+
+            data.push({timestamp: i, open, close, low: min, high: max });
+        }
+
+        console.log(data);
+        series.setData(data);
+
+        // let series2 = chart.addCandleStickSeries();
+        //
+        // let data2 = [];
+        //
+        // function randomIntFromInterval(min, max) { // min and max included
+        //     return Math.floor(Math.random() * (max - min + 1) + min);
+        // }
+        //
+        // for (let i = 0; i <= 5; i++) {
+        //     const minMax1 = randomIntFromInterval(1, 100);
+        //     const minMax2 = randomIntFromInterval(1, 100);
+        //
+        //     const min = Math.min(minMax1, minMax2);
+        //     const max = Math.max(minMax1, minMax2);
+        //
+        //     const open = randomIntFromInterval(min, max);
+        //     const close = randomIntFromInterval(min, max);
+        //
+        //     data2.push({x: i, candle: { open, close, min, max }});
+        // }
+        //
+        // console.log(data2);
+        // series2.setData(data2);
+    </script>
+</body>
+</html>

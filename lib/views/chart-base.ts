@@ -225,6 +225,7 @@ class ChartBaseLocalRenderer implements IRenderer<RenderingOptions> {
       const label = this.abscissaFormatter(value);
 
       const xPos = calcX(value, step, options) * options.pixelRatio;
+      if (xPos < 0 || xPos > options.displaySize[0] * options.pixelRatio) return;
 
       ctx.fillText(label, xPos, 7 * options.pixelRatio);
       ctx.moveTo(xPos, 0);
