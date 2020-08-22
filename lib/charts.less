@@ -1,0 +1,120 @@
+.au-chart {
+  display: grid;
+  grid-template-columns: auto 90px;
+  grid-template-rows: auto 50px;
+  grid-gap: 0;
+  align-content: stretch;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.au-chart .au-abscissa {
+  grid-column: 1 / span 2;
+  grid-row: 2;
+  height: 100%;
+  width: 100%;
+  cursor: col-resize;
+  z-index: 999;
+}
+
+.au-chart .au-ordinates {
+  grid-column: 2;
+  grid-row: 1;
+  height: 100%;
+  width: 100%;
+  cursor: row-resize;
+  z-index: 999;
+}
+
+.au-chart .au-view {
+  grid-column: 1;
+  grid-row: 1;
+  height: 100%;
+  width: 100%;
+  cursor: crosshair;
+
+  &.moving {
+    cursor: grabbing;
+  }
+}
+
+.au-chart-base {
+  grid-column: 1 / span 2;
+  grid-row: 1 / span 2;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.au-chart canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/*!**/
+/*            <div class="au-chart">*/
+/*                <div class="au-left-column>*/
+/*                    <!-- Tools -->*/
+/*                </div>*/
+/*                <div class="au-center-column">*/
+/*                    <div class="au-data-container">*/
+/*                        <!-- All data canvases -->*/
+/*                    </div>*/
+/*                    <div class="au-abscissa-container">*/
+/*                        <canvas />*/
+/*                    </div>*/
+/*                </div>*/
+/*                <div class="au-right-column au-ordinate-container">*/
+/*                    <canvas />*/
+/*                </div>*/
+/*            </div>*/
+/*         *!*/
+
+/*.au-chart {*/
+/*    display: flex;*/
+/*    flex-direction: row;*/
+/*    width: 100%;*/
+/*}*/
+
+/*.au-chart .au-left-column {*/
+/*    width: 30px;*/
+/*}*/
+
+/*.au-chart .au-center-column {*/
+/*    display: flex;*/
+/*    flex-direction: column;*/
+/*    flex-grow: 1;*/
+/*}*/
+
+/*.au-chart .au-center-column .au-data-container {*/
+/*    height: calc(100% - 50px);*/
+/*}*/
+
+/*.au-chart .au-center-column .au-data-container canvas {*/
+/*    position: relative;*/
+/*    height: 100%;*/
+/*    width: 100%;*/
+/*    top: 0;*/
+/*    left: 0;*/
+/*}*/
+
+/*.au-chart .au-center-column .au-abscissa-container {*/
+/*    height: 50px;*/
+/*}*/
+
+/*.au-chart .au-right-column {*/
+/*    flex-grow: 0;*/
+/*    width: 100px;*/
+/*}*/
+
+/*.au-chart .au-ordinate-container canvas {*/
+/*    cursor: row-resize;*/
+/*}*/
+
+/*.au-chart canvas {*/
+/*    width: 100%;*/
+/*    height: 100%;*/
+/*}*/

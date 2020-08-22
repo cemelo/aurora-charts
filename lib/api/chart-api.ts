@@ -12,11 +12,11 @@ export interface IDataSource<Data> extends EventSource<DataSourceEvent> {
 
   getMaxAbscissaPrecision(): number;
 
-  getMaxOrdinatePrecision(): number;
+  getMaxOrdinatePrecision(abscissaRange?: [Min, Max]): number;
 
-  getMinAbscissaDiff(): number;
+  getMinAbscissaDiff(ordinatesRange?: [Min, Max]): number;
 
-  getMinOrdinateDiff(): number;
+  getMinOrdinateDiff(abscissaRange?: [Min, Max]): number;
 
   getMinAbscissaValue(ordinatesRange?: [Min, Max]): number | null;
 

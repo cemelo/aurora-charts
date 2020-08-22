@@ -3,13 +3,14 @@ import {Horizontal, IRenderer, Max, Min, RenderingOptions, Vertical} from '../ap
 import {precision} from '../util/numbers';
 import {calcX, calcY} from '../util/coordinates';
 
-type TimeSeriesData = { data: { x: number, y: number }[] }
+type TimeSeriesRecord = { x: number, y: number };
+type TimeSeriesData = { data: TimeSeriesRecord[] }
 
-export class TimeSeries extends EventSource<DataSourceEvent> implements IDataSource<{ x: number, y: number }>, IChartRenderer<RenderingOptions> {
+export class TimeSeries extends EventSource<DataSourceEvent> implements IDataSource<TimeSeriesRecord>, IChartRenderer<RenderingOptions> {
   defaultDistance: [Horizontal, Vertical] = [10, 10];
   minimumDistance: [Horizontal, Vertical] = [1, 1];
 
-  private data: { x: number, y: number }[] = [];
+  private data: TimeSeriesRecord[] = [];
   private target: IRenderer<RenderingOptions & TimeSeriesData>;
 
   constructor(container: HTMLElement) {
@@ -23,11 +24,11 @@ export class TimeSeries extends EventSource<DataSourceEvent> implements IDataSou
     this.target = new TimeSeriesLocalRenderer(canvas, 2, 'rgba(255, 0, 0, 1)');
   }
 
-  getData(): { x: number; y: number }[] {
+  getData(): TimeSeriesRecord[] {
     return this.data;
   }
 
-  setData(data: { x: number; y: number }[]) {
+  setData(data: TimeSeriesRecord[]) {
     this.data = data;
     this.dispatchEvent('data-updated');
   }
@@ -36,11 +37,16 @@ export class TimeSeries extends EventSource<DataSourceEvent> implements IDataSou
     return Math.max(...this.data.map(v => precision(v.x)));
   }
 
-  getMaxOrdinatePrecision(): number {
-    return Math.max(...this.data.map(v => precision(v.y)));
+  getMaxOrdinatePrecision(abscissaRange?: [Min, Max]): number {
+    let data = this.data;
+    if (abscissaRange !== undefined) {
+      data = this.data.filter(v => (v.x >= abscissaRange[0] && v.x <= abscissaRange[1]))
+    }
+
+    return Math.max(...data.map(v => precision(v.y)));
   }
 
-  getMinAbscissaDiff(): number {
+  getMinAbscissaDiff(ordinatesRange?: [Min, Max]): number {
     return Math.min(...this
       .data
       .reduce((acc, _, index, arr) => {
@@ -55,17 +61,21 @@ export class TimeSeries extends EventSource<DataSourceEvent> implements IDataSou
       .map(v => Math.abs(v[1] - v[0])));
   }
 
-  getMinOrdinateDiff(): number {
-    return Math.min(...this.data
-      .reduce((acc, _, index, arr) => {
-        if (index + 2 > arr.length) {
-          return acc;
-        }
+  getMinOrdinateDiff(abscissaRange?: [Min, Max]): number {
+    let data = this.data;
+    if (abscissaRange !== undefined) {
+      data = this.data.filter(v => (v.x >= abscissaRange[0] && v.x <= abscissaRange[1]))
+    }
 
-        return acc.concat(
-          [[arr[index].y, arr[index + 1].y]]
-        );
-      }, [])
+    return Math.min(...data.reduce((acc, _, index, arr) => {
+      if (index + 2 > arr.length) {
+        return acc;
+      }
+
+      return acc.concat(
+        [[arr[index].y, arr[index + 1].y]]
+      );
+    }, [])
       .map(v => Math.abs(v[1] - v[0])));
   }
 

@@ -2,6 +2,7 @@ import {IAxisRenderer, IChart, IChartRenderer, IDataSource} from './api/chart-ap
 import {RenderingOptions} from './api/rendering-api';
 import {TimeSeries} from './views/time-series';
 import {ChartBase} from './views/chart-base';
+import {CandleStickSeries} from './views/candle-stick';
 
 export class Chart implements IChart {
   readonly abscissaRenderer: IAxisRenderer<RenderingOptions>;
@@ -40,7 +41,7 @@ export class Chart implements IChart {
     this.container.appendChild(this.ordinatesContainer);
     this.container.appendChild(this.view);
 
-    this.renderingOptions.autoResizeOrdinatesAxis = false;
+    this.renderingOptions.autoResizeOrdinatesAxis = true;
     this.renderingOptions.canvasBounds = [10, 10, 0, 0];
     this.renderingOptions.displaySize = [
       this.view.offsetWidth,
@@ -51,18 +52,55 @@ export class Chart implements IChart {
   }
 
   private addEventListeners() {
+    let chartMoveStarted = false;
+
+    this.view.addEventListener('mousedown', (e) => {
+      chartMoveStarted = true;
+
+      this.view.classList.add('moving');
+      this.renderingOptions.cursorPosition = [0, 0];
+      requestAnimationFrame(() => this.refreshViews());
+
+      e.preventDefault();
+    });
+
     this.view.addEventListener('mousemove', (e) => {
+      if (chartMoveStarted) {
+        this.renderingOptions.displayOffset[0] -= e.movementX;
+        requestAnimationFrame(() => this.refreshViews());
+      } else {
+        this.renderingOptions.cursorPosition = [
+          e.offsetX,
+          e.offsetY,
+        ];
+
+        requestAnimationFrame(() => this.refreshViews());
+      }
+    });
+
+    this.view.addEventListener('mouseup', (e) => {
+      chartMoveStarted = false;
+      this.view.classList.remove('moving');
+
       this.renderingOptions.cursorPosition = [
         e.offsetX,
         e.offsetY,
       ];
-
       requestAnimationFrame(() => this.refreshViews());
     });
 
     this.view.addEventListener('mouseleave', (e) => {
+      chartMoveStarted = false;
+      this.view.classList.remove('moving');
+
       this.renderingOptions.cursorPosition = [0, 0];
       requestAnimationFrame(() => this.refreshViews());
+    });
+
+    this.view.addEventListener('wheel', (e) => {
+      this.renderingOptions.displayOffset[0] += e.deltaX;
+      requestAnimationFrame(() => this.refreshViews());
+      e.preventDefault();
     });
 
     let abscissaResizeStarted = false;
@@ -76,7 +114,7 @@ export class Chart implements IChart {
       if (abscissaResizeStarted) {
         let zoomOffset = (event.movementX / this.abscissaContainer.offsetWidth);
         this.renderingOptions.zoomRatio[0] -= zoomOffset;
-        this.refreshViews();
+        requestAnimationFrame(() => this.refreshViews());
       }
     });
 
@@ -94,7 +132,7 @@ export class Chart implements IChart {
       if (ordinatesResizeStarted) {
         let zoomOffset = ((event.movementY * 8) / this.ordinatesContainer.offsetHeight);
         this.renderingOptions.zoomRatio[1] += zoomOffset;
-        this.refreshViews();
+        requestAnimationFrame(() => this.refreshViews());
       }
     });
 
@@ -105,7 +143,7 @@ export class Chart implements IChart {
   addTimeSeries(): TimeSeries {
     let timeSeries = new TimeSeries(this.container);
     timeSeries.addEventListener('data-updated', () => {
-      requestAnimationFrame(() => this.refreshViews(false, true));
+      requestAnimationFrame(() => this.refreshViews());
     });
 
     this.dataSources.push(timeSeries);
@@ -114,7 +152,19 @@ export class Chart implements IChart {
     return timeSeries;
   }
 
-  private refreshViews(fitAbscissaAxis: boolean = false, fitOrdinateAxis: boolean = false) {
+  addCandleStickSeries(): CandleStickSeries {
+    let candleStickSeries = new CandleStickSeries(this.container);
+    candleStickSeries.addEventListener('data-updated', () => {
+      requestAnimationFrame(() => this.refreshViews());
+    });
+
+    this.dataSources.push(candleStickSeries);
+
+    candleStickSeries.resize(this.view.offsetWidth, this.view.offsetHeight, this.renderingOptions);
+    return candleStickSeries;
+  }
+
+  private refreshViews(fitAbscissaAxis: boolean = false, fitOrdinateAxis: boolean = true) {
     if (Math.max(...this.dataSources.map(v => v.getData().length)) === 0) {
       return;
     }
@@ -164,11 +214,37 @@ export class Chart implements IChart {
       this.renderingOptions.zoomRatio[0] = horizontalPointDistance / Math.max(...this.dataSources.map(r => r.defaultDistance[0]));
     }
 
+    if (horizontalPointDistance > 0) {
+      let maxHorizontalPoints = this.renderingOptions.displaySize[0] / horizontalPointDistance;
+      let horizontalPointOffset = this.renderingOptions.displayOffset[0] / horizontalPointDistance;
+
+      abscissaRange[1] = abscissaRange[1] + horizontalPointOffset;
+      abscissaRange[0] = abscissaRange[1] - abscissaStep * maxHorizontalPoints;
+    }
+
+    this.renderingOptions.abscissaRange = abscissaRange;
+
+    if (this.renderingOptions.autoResizeOrdinatesAxis) {
+      ordinatesRange = [
+        Math.min(...this.dataSources.map(r => r.getMinOrdinateValue(abscissaRange) || Infinity)),
+        Math.max(...this.dataSources.map(r => r.getMaxOrdinateValue(abscissaRange) || -Infinity))
+      ];
+
+      this.renderingOptions.zoomRatio[1] = 1;
+      ordinatePrecision = Math.max(...this.dataSources.map(r => r.getMaxOrdinatePrecision(abscissaRange)));
+      ordinateStep = Math.min(...this.dataSources.map(r => r.getMinOrdinateDiff())) || Math.pow(10, -ordinatePrecision);
+    }
+
+    if (Math.abs(ordinatesRange[0]) === Infinity || Math.abs(ordinatesRange[1]) === -Infinity) {
+      return;
+    }
+
     if (verticalPointDistance == null || fitOrdinateAxis) {
-      verticalPointDistance = Math.max(
-        minVerticalPointDistance,
-        ...this.dataSources.map(r => r.defaultDistance[1] * this.renderingOptions.zoomRatio[1])
-      );
+      verticalPointDistance = (this.renderingOptions.autoResizeOrdinatesAxis) ? minVerticalPointDistance :
+        Math.max(
+          minVerticalPointDistance,
+          ...this.dataSources.map(r => r.defaultDistance[1] * this.renderingOptions.zoomRatio[1])
+        );
 
       let maxTotalOrdinateValues = (ordinatesRange[1] - ordinatesRange[0]) * ordinateStep;
       if (fitOrdinateAxis && verticalPointDistance * maxTotalOrdinateValues < this.renderingOptions.displaySize[1]) {
@@ -179,22 +255,7 @@ export class Chart implements IChart {
       this.renderingOptions.zoomRatio[1] = verticalPointDistance / Math.max(...this.dataSources.map(r => r.defaultDistance[1]));
     }
 
-    if (horizontalPointDistance > 0) {
-      let maxHorizontalPoints = this.renderingOptions.displaySize[0] / horizontalPointDistance;
-      let horizontalPointOffset = Math.floor(this.renderingOptions.displayOffset[0] / abscissaStep);
-
-      abscissaRange[1] = abscissaRange[1] + horizontalPointOffset;
-      abscissaRange[0] = abscissaRange[1] - abscissaStep * maxHorizontalPoints;
-    }
-
-    if (this.renderingOptions.autoResizeOrdinatesAxis) {
-      ordinatesRange = [
-        Math.min(...this.dataSources.map(r => r.getMinOrdinateValue(abscissaRange) || 0)),
-        Math.max(...this.dataSources.map(r => r.getMaxOrdinateValue(abscissaRange) || 0))
-      ];
-    }
-
-    if (verticalPointDistance > 0) {
+    if (verticalPointDistance > 0 && !this.renderingOptions.autoResizeOrdinatesAxis) {
       // Zooming in the ordinates axis is always from the center
 
       let maxVerticalPoints = this.renderingOptions.displaySize[1] / verticalPointDistance;
@@ -204,7 +265,6 @@ export class Chart implements IChart {
       ordinatesRange[0] = half - (ordinateStep * maxVerticalPoints / 2);
     }
 
-    this.renderingOptions.abscissaRange = abscissaRange;
     this.renderingOptions.ordinatesRange = ordinatesRange;
   }
 }

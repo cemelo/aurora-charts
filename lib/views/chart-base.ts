@@ -178,9 +178,9 @@ class ChartBaseLocalRenderer implements IRenderer<RenderingOptions> {
     ctxGrid.fillStyle = 'rgb(0, 0, 0)';
     ctxGrid.fillRect(
       options.displaySize[0] * options.pixelRatio + 1,
-      (yPos - ordinateLabelMeasures.actualBoundingBoxAscent / 2) - 10 * options.pixelRatio,
+      (yPos - ordinateLabelMeasures.actualBoundingBoxAscent / 2) - 12 * options.pixelRatio,
       ordinateLabelMeasures.width + 20 * options.pixelRatio,
-      ordinateLabelMeasures.actualBoundingBoxAscent + 20 * options.pixelRatio,
+      ordinateLabelMeasures.actualBoundingBoxAscent + 24 * options.pixelRatio,
     );
 
     ctxGrid.fillStyle = 'rgb(255, 255, 255)';
