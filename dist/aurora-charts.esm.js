@@ -6,9 +6,9 @@ class RenderingOptions {
         this.displaySize = [0, 0];
         this.abscissaRange = [0, 0];
         this.ordinatesRange = [0, 0];
-        this.zoomRatio = [0, 0];
+        this.zoomRatios = [0, 0];
         this.displayOffset = [0, 0];
-        this.pointDistance = [0, 0];
+        this.pointDistances = [0, 0];
         this.abscissaLabelGenerator = null;
         this.ordinatesLabelGenerator = null;
     }

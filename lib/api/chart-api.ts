@@ -1,8 +1,9 @@
 import {Horizontal, IAxisProperties, IRenderer, Max, Min, RenderingOptions, Vertical} from './rendering-api';
+import {ILabelGenerator} from './labeling-api';
 
 export interface IChart {
   readonly abscissaRenderer: IAxisRenderer<RenderingOptions>;
-  readonly ordinatesRenderer: IAxisRenderer<RenderingOptions>;
+  readonly ordinatesRenderers: IAxisRenderer<RenderingOptions>[];
 }
 
 export interface IDataSource<Data> extends EventSource<DataSourceEvent> {
@@ -29,11 +30,16 @@ export interface IDataSource<Data> extends EventSource<DataSourceEvent> {
 }
 
 export interface IChartRenderer<T> extends IRenderer<T> {
+  readonly row: number;
+
   minimumDistance: [Horizontal, Vertical];
   defaultDistance: [Horizontal, Vertical];
 }
 
-export interface IAxisRenderer<T> extends IRenderer<T> {
+export interface IAxisRenderer<T>  {
+  resize(width: number, height: number, options: T);
+  render(options: T): number[];
+  setLabelGenerator(generator: ILabelGenerator);
   setLabelFormatter(f: (n: number) => string);
 }
 

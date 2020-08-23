@@ -7,21 +7,25 @@ type TimeSeriesRecord = { x: number, y: number };
 type TimeSeriesData = { data: TimeSeriesRecord[] }
 
 export class TimeSeries extends EventSource<DataSourceEvent> implements IDataSource<TimeSeriesRecord>, IChartRenderer<RenderingOptions> {
+  readonly row: number;
+
   defaultDistance: [Horizontal, Vertical] = [10, 10];
   minimumDistance: [Horizontal, Vertical] = [1, 1];
 
   private data: TimeSeriesRecord[] = [];
   private target: IRenderer<RenderingOptions & TimeSeriesData>;
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, row: number) {
     super();
 
     const canvas = document.createElement('canvas');
     canvas.className = 'au-view';
+    canvas.style.setProperty('--au-chart-row', (row + 1).toString());
 
     container.appendChild(canvas);
 
-    this.target = new TimeSeriesLocalRenderer(canvas, 2, 'rgba(255, 0, 0, 1)');
+    this.row = row;
+    this.target = new TimeSeriesLocalRenderer(canvas, row, 2, 'rgba(255, 0, 0, 1)');
   }
 
   getData(): TimeSeriesRecord[] {
@@ -40,7 +44,7 @@ export class TimeSeries extends EventSource<DataSourceEvent> implements IDataSou
   getMaxOrdinatePrecision(abscissaRange?: [Min, Max]): number {
     let data = this.data;
     if (abscissaRange !== undefined) {
-      data = this.data.filter(v => (v.x >= abscissaRange[0] && v.x <= abscissaRange[1]))
+      data = data.filter(v => (v.x >= abscissaRange[0] && v.x <= abscissaRange[1]))
     }
 
     return Math.max(...data.map(v => precision(v.y)));
@@ -80,35 +84,46 @@ export class TimeSeries extends EventSource<DataSourceEvent> implements IDataSou
   }
 
   getMaxAbscissaValue(ordinatesRange?: [Min, Max]): number | null {
+    let data = this.data;
     if (ordinatesRange !== undefined) {
-      return Math.max(...this.data.filter(v => (v.y >= ordinatesRange[0] && v.y <= ordinatesRange[1])).map(v => v.x));
+      data = data.filter(v => (v.y >= ordinatesRange[0] && v.y <= ordinatesRange[1]));
     }
 
-    return Math.max(...this.data.map(v => v.x));
+    if (data.length === 0) return null;
+
+    return Math.max(...data.map(v => v.x));
   }
 
   getMaxOrdinateValue(abscissaRange?: [Min, Max]): number | null {
+    let data = this.data;
     if (abscissaRange !== undefined) {
-      return Math.max(...this.data.filter(v => (v.x >= abscissaRange[0] && v.x <= abscissaRange[1])).map(v => v.y));
+      data = data.filter(v => (v.x >= abscissaRange[0] && v.x <= abscissaRange[1]));
     }
 
-    return Math.max(...this.data.map(v => v.y));
+    if (data.length === 0) return null;
+    return Math.max(...data.map(v => v.y));
   }
 
   getMinAbscissaValue(ordinatesRange?: [Min, Max]): number | null {
+    let data = this.data;
     if (ordinatesRange !== undefined) {
-      return Math.min(...this.data.filter(v => (v.y >= ordinatesRange[0] && v.y <= ordinatesRange[1])).map(v => v.x));
+      data = data.filter(v => (v.y >= ordinatesRange[0] && v.y <= ordinatesRange[1]));
     }
 
-    return Math.min(...this.data.map(v => v.x));
+    if (data.length === 0) return null;
+
+    return Math.min(...data.map(v => v.x));
   }
 
   getMinOrdinateValue(abscissaRange?: [Min, Max]): number | null {
+    let data = this.data;
     if (abscissaRange !== undefined) {
-      return Math.min(...this.data.filter(v => (v.x >= abscissaRange[0] && v.x <= abscissaRange[1])).map(v => v.y));
+      data = data.filter(v => (v.x >= abscissaRange[0] && v.x <= abscissaRange[1]));
     }
 
-    return Math.min(...this.data.map(v => v.y));
+    if (data.length === 0) return null;
+
+    return Math.min(...data.map(v => v.y));
   }
 
   render(options: RenderingOptions) {
@@ -122,12 +137,15 @@ export class TimeSeries extends EventSource<DataSourceEvent> implements IDataSou
 }
 
 class TimeSeriesLocalRenderer implements IRenderer<RenderingOptions & TimeSeriesData> {
+  private row: number;
+
   private canvas: HTMLCanvasElement;
   private lineWidth: number;
   private strokeStyle: string | CanvasGradient | CanvasPattern;
 
-  constructor(canvas: HTMLCanvasElement, lineWidth: number, lineColor: string | CanvasGradient | CanvasPattern) {
+  constructor(canvas: HTMLCanvasElement, row: number, lineWidth: number, lineColor: string | CanvasGradient | CanvasPattern) {
     this.canvas = canvas;
+    this.row = row;
     this.lineWidth = lineWidth;
     this.strokeStyle = lineColor;
   }
@@ -141,8 +159,8 @@ class TimeSeriesLocalRenderer implements IRenderer<RenderingOptions & TimeSeries
     ctx.lineWidth = this.lineWidth * options.pixelRatio;
     ctx.lineJoin = 'round';
 
-    const actualHeight = options.displaySize[1] - options.canvasBounds[0] - options.canvasBounds[1];
-    const rangeOrdinates = options.ordinatesRange[1] - options.ordinatesRange[0];
+    const actualHeight = this.canvas.offsetHeight - options.canvasBounds[0] - options.canvasBounds[1];
+    const rangeOrdinates = options.ordinatesRanges[this.row][1] - options.ordinatesRanges[this.row][0];
     const stepOrdinates = actualHeight / rangeOrdinates;
 
     const actualWidth = options.displaySize[0] - options.canvasBounds[2] - options.canvasBounds[3];
@@ -152,7 +170,7 @@ class TimeSeriesLocalRenderer implements IRenderer<RenderingOptions & TimeSeries
     options.data.filter(({x, y}) => (
       x >= options.abscissaRange[0] - stepAbscissa && x <= options.abscissaRange[1] + stepAbscissa
     )).forEach(({x, y}, idx) => {
-      const yPos = calcY(y, stepOrdinates, options) * options.pixelRatio;
+      const yPos = calcY(this.row, actualHeight, y, stepOrdinates, options) * options.pixelRatio;
       const xPos = calcX(x, stepAbscissa, options) * options.pixelRatio;
 
       if (idx === 0) {

@@ -12,6 +12,8 @@ export interface CandleStickOptions {
 }
 
 export class CandleStickSeries extends EventSource<DataSourceEvent> implements IDataSource<CandleStickRecord>, IChartRenderer<RenderingOptions> {
+  readonly row: number;
+
   defaultDistance: [Horizontal, Vertical] = [12, 1];
   minimumDistance: [Horizontal, Vertical] = [6, 2];
 
@@ -20,11 +22,12 @@ export class CandleStickSeries extends EventSource<DataSourceEvent> implements I
 
   private cachedRenderingOptions: RenderingOptions | null;
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, row: number) {
     super();
 
     const canvas = document.createElement('canvas');
     canvas.className = 'au-view';
+    canvas.style.setProperty('--au-chart-row', (row + 1).toString());
 
     container.appendChild(canvas);
 
@@ -49,7 +52,8 @@ export class CandleStickSeries extends EventSource<DataSourceEvent> implements I
       }
     };
 
-    this.target = new CandleStickSeriesLocalRenderer(canvas, defaultOptions.strokeStyle, defaultOptions.candleFillStyle);
+    this.row = row;
+    this.target = new CandleStickSeriesLocalRenderer(canvas, row, defaultOptions.strokeStyle, defaultOptions.candleFillStyle);
   }
 
   getData(): CandleStickRecord[] {
@@ -118,35 +122,47 @@ export class CandleStickSeries extends EventSource<DataSourceEvent> implements I
   }
 
   getMaxAbscissaValue(ordinatesRange?: [Min, Max]): number | null {
+    let data = this.data;
+
     if (ordinatesRange !== undefined) {
-      return Math.max(...this.data.filter(v => (v.low >= ordinatesRange[0] && v.high <= ordinatesRange[1])).map(v => v.timestamp));
+      data = data.filter(v => (v.low >= ordinatesRange[0] && v.high <= ordinatesRange[1]));
     }
 
-    return Math.max(...this.data.map(v => v.timestamp));
+    if (data.length === 0) return null;
+    return Math.max(...data.map(v => v.timestamp));
   }
 
   getMaxOrdinateValue(abscissaRange?: [Min, Max]): number | null {
+    let data = this.data;
+
     if (abscissaRange !== undefined) {
-      return Math.max(...this.data.filter(v => (v.timestamp >= abscissaRange[0] && v.timestamp <= abscissaRange[1])).map(v => v.high));
+      data = data.filter(v => (v.timestamp >= abscissaRange[0] && v.timestamp <= abscissaRange[1]));
     }
 
-    return Math.max(...this.data.map(v => v.high));
+    if (data.length === 0) return null;
+    return Math.max(...data.map(v => v.high));
   }
 
   getMinAbscissaValue(ordinatesRange?: [Min, Max]): number | null {
+    let data = this.data;
+
     if (ordinatesRange !== undefined) {
-      return Math.min(...this.data.filter(v => (v.low >= ordinatesRange[0] && v.high <= ordinatesRange[1])).map(v => v.timestamp));
+      data = data.filter(v => (v.low >= ordinatesRange[0] && v.high <= ordinatesRange[1]));
     }
 
-    return Math.min(...this.data.map(v => v.timestamp));
+    if (data.length === 0) return null;
+    return Math.min(...data.map(v => v.timestamp));
   }
 
   getMinOrdinateValue(abscissaRange?: [Min, Max]): number | null {
+    let data = this.data;
+
     if (abscissaRange !== undefined) {
-      return Math.min(...this.data.filter(v => (v.timestamp >= abscissaRange[0] && v.timestamp <= abscissaRange[1])).map(v => v.low));
+      data = data.filter(v => (v.timestamp >= abscissaRange[0] && v.timestamp <= abscissaRange[1]));
     }
 
-    return Math.min(...this.data.map(v => v.low));
+    if (data.length === 0) return null;
+    return Math.min(...data.map(v => v.low));
   }
 
   render(options: RenderingOptions) {
@@ -162,13 +178,16 @@ export class CandleStickSeries extends EventSource<DataSourceEvent> implements I
 
 class CandleStickSeriesLocalRenderer implements IRenderer<RenderingOptions & CandleStickData> {
   private canvas: HTMLCanvasElement;
+  private row: number;
   private strokeStyle: (CandleStickRecord) => string | CanvasGradient | CanvasPattern = () => '#000000';
   private candleFillStyle: (CandleStickRecord) => string | CanvasGradient | CanvasPattern = () => '#000000';
 
   constructor(canvas: HTMLCanvasElement,
+              row: number,
               strokeStyle: (CandleStickRecord) => string | CanvasGradient | CanvasPattern,
               candleFillStyle: (CandleStickRecord) => string | CanvasGradient | CanvasPattern) {
     this.canvas = canvas;
+    this.row = row;
     this.candleFillStyle = candleFillStyle || this.candleFillStyle;
     this.strokeStyle = strokeStyle || this.strokeStyle;
   }
@@ -185,8 +204,9 @@ class CandleStickSeriesLocalRenderer implements IRenderer<RenderingOptions & Can
 
     ctx.lineWidth = options.pixelRatio;
 
-    const actualHeight = options.displaySize[1] - options.canvasBounds[0] - options.canvasBounds[1];
-    const rangeOrdinates = options.ordinatesRange[1] - options.ordinatesRange[0];
+    const actualHeight = this.canvas.offsetHeight - options.canvasBounds[0] - options.canvasBounds[1];
+
+    const rangeOrdinates = options.ordinatesRanges[this.row][1] - options.ordinatesRanges[this.row][0];
     const stepOrdinates = actualHeight / rangeOrdinates;
 
     const actualWidth = options.displaySize[0] - options.canvasBounds[2] - options.canvasBounds[3];
@@ -198,10 +218,10 @@ class CandleStickSeriesLocalRenderer implements IRenderer<RenderingOptions & Can
     )).forEach((record, idx) => {
       const {timestamp, high, low, open, close} = record;
 
-      const lowPos = calcY(low, stepOrdinates, options) * options.pixelRatio;
-      const highPos = calcY(high, stepOrdinates, options) * options.pixelRatio;
-      const openPos = calcY(open, stepOrdinates, options) * options.pixelRatio;
-      const closePos = calcY(close, stepOrdinates, options) * options.pixelRatio;
+      const lowPos = calcY(this.row, actualHeight, low, stepOrdinates, options) * options.pixelRatio;
+      const highPos = calcY(this.row, actualHeight, high, stepOrdinates, options) * options.pixelRatio;
+      const openPos = calcY(this.row, actualHeight, open, stepOrdinates, options) * options.pixelRatio;
+      const closePos = calcY(this.row, actualHeight, close, stepOrdinates, options) * options.pixelRatio;
 
       const xPos = calcX(timestamp, stepAbscissa, options) * options.pixelRatio;
 

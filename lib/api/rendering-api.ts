@@ -25,17 +25,14 @@ export class RenderingOptions {
   autoResizeOrdinatesAxis: boolean;
 
   abscissaRange: [Min, Max];
-  ordinatesRange: [Min, Max];
+  ordinatesRanges: [Min, Max][];
 
-  pointDistance: [Horizontal | null, Vertical | null];
+  pointDistances: [Horizontal | null, Vertical[]];
 
-  zoomRatio: [Horizontal, Vertical];
+  zoomRatios: [Horizontal, Vertical[]];
 
   displayOffset: [Horizontal, Vertical];
   displaySize: [Width, Height];
-
-  abscissaLabelGenerator: ILabelGenerator | null;
-  ordinatesLabelGenerator: ILabelGenerator | null;
 
   cursorPosition: [Horizontal, Vertical];
 
@@ -43,14 +40,12 @@ export class RenderingOptions {
     this.canvasBounds = [0, 0, 0, 0];
     this.pixelRatio = window?.devicePixelRatio || 1;
     this.autoResizeOrdinatesAxis = false;
-    this.pointDistance = [null, null];
+    this.pointDistances = [null, []];
     this.displaySize = [0, 0];
     this.abscissaRange = [0, 0];
-    this.ordinatesRange = [0, 0];
-    this.zoomRatio = [1, 1];
+    this.ordinatesRanges = [[0, 0]];
+    this.zoomRatios = [1, [1]];
     this.displayOffset = [0, 0];
-    this.abscissaLabelGenerator = null;
-    this.ordinatesLabelGenerator = null;
     this.cursorPosition = [0, 0];
   }
 }

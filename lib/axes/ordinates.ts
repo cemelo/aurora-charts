@@ -1,0 +1,121 @@
+import {IAxisRenderer} from '../api/chart-api';
+import {RenderingOptions} from '../api/rendering-api';
+import {ExtendedWilkinson} from '../labeling/ext-wilkinson';
+import {calcY} from '../util/coordinates';
+import {shallowArrayCompare} from '../util/comparison';
+import {ILabelGenerator} from '../api/labeling-api';
+
+export class OrdinatesAxisRenderer implements IAxisRenderer<RenderingOptions> {
+  readonly canvas: HTMLCanvasElement;
+
+  private target: IAxisRenderer<RenderingOptions>;
+
+  constructor(container: HTMLElement, rowNumber: number) {
+    this.canvas = document.createElement('canvas');
+    this.canvas.classList.add('au-ordinates');
+    this.canvas.style.setProperty('--au-chart-row', (rowNumber + 1).toString());
+
+    container.appendChild(this.canvas);
+
+    this.target = new OrdinatesLocalAxisRenderer(this.canvas, ExtendedWilkinson, rowNumber);
+  }
+
+  render(options: RenderingOptions): number[] {
+    return this.target.render(options);
+  }
+
+  resize(width: number, height: number, options: RenderingOptions) {
+    this.target.resize(width, height, options);
+  }
+
+  setLabelFormatter(f: (n: number) => string) {
+    this.target.setLabelFormatter(f);
+  }
+
+  setLabelGenerator(generator: ILabelGenerator) {
+    this.target.setLabelGenerator(generator);
+  }
+}
+
+class OrdinatesLocalAxisRenderer implements IAxisRenderer<RenderingOptions> {
+  readonly canvas: HTMLCanvasElement;
+
+  private labelGenerator: ILabelGenerator;
+  private formatter: (number) => string = n => n.toString();
+
+  private row: number = 0;
+
+  private cachedActualHeight: number;
+  private cachedStep: number;
+  private cachedRenderingOptions: RenderingOptions = new RenderingOptions();
+
+  constructor(canvas: HTMLCanvasElement, labelGenerator: ILabelGenerator, rowNumber: number) {
+    this.canvas = canvas;
+    this.row = rowNumber;
+
+    this.labelGenerator = labelGenerator;
+  }
+
+  render(options: RenderingOptions): number[] {
+    const shouldRedraw =
+      this.canvas.width !== this.canvas.offsetWidth * options.pixelRatio ||
+      this.canvas.height !== this.canvas.offsetHeight * options.pixelRatio ||
+      !shallowArrayCompare(options.ordinatesRanges[this.row], this.cachedRenderingOptions.ordinatesRanges[this.row]);
+
+    if (!shouldRedraw) return;
+
+    this.canvas.width = this.canvas.offsetWidth * options.pixelRatio;
+    this.canvas.height = this.canvas.offsetHeight * options.pixelRatio;
+
+    const ctx = this.canvas.getContext('2d');
+    ctx.clearRect(0, 0, this.canvas.width * options.pixelRatio, this.canvas.height * options.pixelRatio);
+    ctx.beginPath();
+
+    ctx.font = `${12 * options.pixelRatio}px system-ui, sans-serif`;
+    ctx.textBaseline = 'middle';
+
+    const fontHeight = ctx.measureText('0').actualBoundingBoxAscent;
+    const minTextSpacing = 50 * options.pixelRatio;
+    const maxLabels = Math.floor((this.canvas.height * options.pixelRatio + minTextSpacing) / (fontHeight + minTextSpacing));
+
+    const actualHeight = this.canvas.offsetHeight - options.canvasBounds[0] - options.canvasBounds[1];
+
+    const labelProps = ExtendedWilkinson.generate(options.ordinatesRanges[this.row][0], options.ordinatesRanges[this.row][1], maxLabels);
+    const range = options.ordinatesRanges[this.row][1] - options.ordinatesRanges[this.row][0];
+    const step = actualHeight / range;
+
+    labelProps.labels.forEach(value => {
+      const label = this.formatter(value);
+
+      const xPos = options.pixelRatio;
+      const yPos = calcY(this.row, actualHeight, value, step, options) * options.pixelRatio;
+
+      if ((yPos + fontHeight / 2) > this.canvas.height || (yPos - fontHeight / 2) < 0) return;
+
+      ctx.fillText(label, xPos + 7 * options.pixelRatio, yPos, (90 * options.pixelRatio));
+      ctx.moveTo(0, yPos);
+      ctx.lineTo(5 * options.pixelRatio, yPos);
+    });
+
+    this.cachedActualHeight = actualHeight;
+    this.cachedStep = step;
+    this.cachedRenderingOptions.ordinatesRanges[this.row] = options.ordinatesRanges[this.row];
+
+    ctx.stroke();
+
+    return labelProps.labels;
+  }
+
+  resize(width: number, height: number, options: RenderingOptions) {
+    this.render(options);
+  }
+
+  setLabelFormatter(f: (n: number) => string) {
+    this.formatter = f;
+  }
+
+  setLabelGenerator(generator: ILabelGenerator) {
+    this.labelGenerator = generator;
+  }
+
+}

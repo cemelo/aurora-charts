@@ -5,6 +5,10 @@ export const ExtendedWilkinson = new class ExtendedWilkinson implements ILabelGe
   private readonly Q = [1.0, 5.0, 2.0, 2.5, 4.0, 3.0];
 
   generate(dmin: number, dmax: number, maxLabels: number, labelInclusion: LabelRange = LabelRange.Included): ILabelProps {
+    if (dmin === dmax) {
+      return {max: dmax, min: dmin, labels: [dmin], step: 1 };
+    }
+
     let outMin = 1;
     let outMax = 1;
     let outStep = 1;

@@ -1,7 +1,12 @@
+:root {
+  --au-chart-row: 1;
+  --au-row-count: 2;
+  --au-row-heights: auto 50px;
+}
 .au-chart {
   display: grid;
   grid-template-columns: auto 90px;
-  grid-template-rows: auto 50px;
+  grid-template-rows: var(--au-row-heights);
   grid-gap: 0;
   align-content: stretch;
   height: 100%;
@@ -11,13 +16,13 @@
 }
 .au-chart .au-abscissa {
   grid-column: 1 / span 2;
-  grid-row: 2;
+  grid-row: var(--au-row-count);
   height: 100%;
   width: 100%;
 }
 .au-chart .au-ordinates {
   grid-column: 2;
-  grid-row: 1;
+  grid-row: var(--au-chart-row);
   height: 100%;
   width: 100%;
 }
@@ -32,7 +37,7 @@
 }
 .au-chart .au-view {
   grid-column: 1;
-  grid-row: 1;
+  grid-row: var(--au-chart-row);
   height: 100%;
   width: 100%;
   cursor: crosshair;
