@@ -22,6 +22,8 @@ export class TimeSeries extends EventSource<DataSourceEvent> implements IDataSou
     canvas.className = 'au-view';
     canvas.style.setProperty('--au-chart-row', (row + 1).toString());
 
+    if (row > 0) canvas.setAttribute('data-secondary-row', 'true');
+
     container.appendChild(canvas);
 
     this.row = row;
@@ -163,7 +165,7 @@ class TimeSeriesLocalRenderer implements IRenderer<RenderingOptions & TimeSeries
     const rangeOrdinates = options.ordinatesRanges[this.row][1] - options.ordinatesRanges[this.row][0];
     const stepOrdinates = actualHeight / rangeOrdinates;
 
-    const actualWidth = options.displaySize[0] - options.canvasBounds[2] - options.canvasBounds[3];
+    const actualWidth = this.canvas.offsetWidth - options.canvasBounds[2] - options.canvasBounds[3];
     const rangeAbscissa = options.abscissaRange[1] - options.abscissaRange[0];
     const stepAbscissa = actualWidth / rangeAbscissa;
 

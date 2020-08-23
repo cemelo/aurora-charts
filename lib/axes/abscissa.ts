@@ -3,7 +3,7 @@ import {RenderingOptions} from '../api/rendering-api';
 import {ExtendedWilkinson} from '../labeling/ext-wilkinson';
 import {calcX} from '../util/coordinates';
 import {shallowArrayCompare} from '../util/comparison';
-import {ILabelGenerator} from '../api/labeling-api';
+import {ILabelGenerator, ILabelProps} from '../api/labeling-api';
 
 export class AbscissaAxisRenderer implements IAxisRenderer<RenderingOptions> {
   readonly canvas: HTMLCanvasElement;
@@ -18,7 +18,7 @@ export class AbscissaAxisRenderer implements IAxisRenderer<RenderingOptions> {
     this.target = new AbscissaLocalAxisRenderer(this.canvas, ExtendedWilkinson);
   }
 
-  render(options: RenderingOptions): number[] {
+  render(options: RenderingOptions): ILabelProps {
     return this.target.render(options);
   }
 
@@ -41,23 +41,24 @@ class AbscissaLocalAxisRenderer implements IAxisRenderer<RenderingOptions> {
   private labelGenerator: ILabelGenerator;
   private formatter: (number) => string = n => n.toString();
 
-  private cachedLabels: number[];
   private cachedActualWidth: number;
   private cachedStep: number;
   private cachedRenderingOptions: RenderingOptions = new RenderingOptions();
+  private cachedLabelProps: ILabelProps;
 
   constructor(canvas: HTMLCanvasElement, labelGenerator: ILabelGenerator) {
     this.canvas = canvas;
     this.labelGenerator = labelGenerator;
+    this.cachedLabelProps = {labels: [], max: 0, min: 0, step: 0};
   }
 
-  render(options: RenderingOptions): number[] {
+  render(options: RenderingOptions): ILabelProps {
     const shouldRedraw =
       this.canvas.width !== this.canvas.offsetWidth * options.pixelRatio ||
       this.canvas.height !== this.canvas.offsetHeight * options.pixelRatio ||
       !shallowArrayCompare(options.abscissaRange, this.cachedRenderingOptions.abscissaRange);
 
-    if (!shouldRedraw) return;
+    if (!shouldRedraw) return this.cachedLabelProps;
 
     this.canvas.width = this.canvas.offsetWidth * options.pixelRatio;
     this.canvas.height = this.canvas.offsetHeight * options.pixelRatio;
@@ -66,9 +67,8 @@ class AbscissaLocalAxisRenderer implements IAxisRenderer<RenderingOptions> {
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.beginPath();
 
-    ctx.strokeStyle = 'rgba(87, 87, 87, 1)';
-
-    ctx.font = `${12 * options.pixelRatio}px system-ui, sans-serif`;
+    ctx.strokeStyle = options.style.axisStrokeStyle;
+    ctx.font = options.style.axisFont;
     ctx.textBaseline = 'top';
     ctx.textAlign = 'center';
 
@@ -81,12 +81,15 @@ class AbscissaLocalAxisRenderer implements IAxisRenderer<RenderingOptions> {
     const minTextSpacing = 20 * options.pixelRatio;
     const maxLabels = Math.floor((options.displaySize[0] * options.pixelRatio + minTextSpacing) / (maxTextWidth + minTextSpacing));
 
-    const actualWidth = options.displaySize[0] - options.canvasBounds[2] - options.canvasBounds[3];
-
     const labelProps = ExtendedWilkinson.generate(options.abscissaRange[0], options.abscissaRange[1], maxLabels);
 
+    const actualWidth = options.displaySize[0] - options.canvasBounds[2] - options.canvasBounds[3];
     const range = options.abscissaRange[1] - options.abscissaRange[0];
     const step = actualWidth / range;
+
+    // Boundary
+    ctx.moveTo(0, options.pixelRatio);
+    ctx.lineTo(this.canvas.width, options.pixelRatio);
 
     labelProps.labels.forEach(value => {
       const label = this.formatter(value);
@@ -99,14 +102,14 @@ class AbscissaLocalAxisRenderer implements IAxisRenderer<RenderingOptions> {
       ctx.lineTo(xPos, 5 * options.pixelRatio);
     });
 
-    this.cachedLabels = labelProps.labels;
     this.cachedActualWidth = actualWidth;
     this.cachedStep = step;
     this.cachedRenderingOptions.abscissaRange = options.abscissaRange;
+    this.cachedLabelProps = labelProps;
 
     ctx.stroke();
 
-    return labelProps.labels;
+    return this.cachedLabelProps;
   }
 
   resize(width: number, height: number, options: RenderingOptions) {

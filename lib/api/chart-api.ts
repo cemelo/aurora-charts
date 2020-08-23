@@ -1,5 +1,5 @@
 import {Horizontal, IAxisProperties, IRenderer, Max, Min, RenderingOptions, Vertical} from './rendering-api';
-import {ILabelGenerator} from './labeling-api';
+import {ILabelGenerator, ILabelProps} from './labeling-api';
 
 export interface IChart {
   readonly abscissaRenderer: IAxisRenderer<RenderingOptions>;
@@ -38,7 +38,7 @@ export interface IChartRenderer<T> extends IRenderer<T> {
 
 export interface IAxisRenderer<T>  {
   resize(width: number, height: number, options: T);
-  render(options: T): number[];
+  render(options: T): ILabelProps;
   setLabelGenerator(generator: ILabelGenerator);
   setLabelFormatter(f: (n: number) => string);
 }

@@ -1,23 +1,24 @@
 import {IAxisRenderer, IChart, IChartRenderer, IDataSource} from './api/chart-api';
-import {RenderingOptions} from './api/rendering-api';
+import {IGridOptions, IRenderer, RenderingOptions} from './api/rendering-api';
 import {TimeSeries} from './views/time-series';
 import {CandleStickSeries} from './views/candle-stick';
 import {AbscissaAxisRenderer} from './axes/abscissa';
 import {OrdinatesAxisRenderer} from './axes/ordinates';
 import {createId} from './util/hash';
+import {GridRenderer} from './axes/grid';
 
 // One ordinate range per row
 export class Chart implements IChart {
   readonly abscissaRenderer: IAxisRenderer<RenderingOptions>;
   readonly ordinatesRenderers: IAxisRenderer<RenderingOptions>[];
+  readonly gridRenderers: IRenderer<RenderingOptions & IGridOptions>[];
 
   private container: HTMLElement;
   private abscissaContainer: HTMLElement;
-  private ordinatesContainer: HTMLElement;
   private views: HTMLElement[];
 
   private renderingOptions: RenderingOptions = new RenderingOptions();
-  private rowHeights: string[] = ['auto'];
+  private rows: HTMLElement[] = [];
 
   private componentId: string = createId();
 
@@ -30,25 +31,17 @@ export class Chart implements IChart {
     container.appendChild(wrapper);
     this.container = wrapper;
 
-    this.views = [];
-    this.views.push(document.createElement('div'));
-    this.views[0].className = 'au-view';
-    this.views[0].style.zIndex = '999';
-
     this.abscissaContainer = document.createElement('div');
     this.abscissaContainer.classList.add('au-abscissa', 'au-container', 'au-resizeable');
-
-    this.ordinatesContainer = document.createElement('div');
-    this.ordinatesContainer.classList.add('au-ordinates', 'au-container');
-
-    // this.baseRenderer = new ChartBase(this.container);
-    this.abscissaRenderer = new AbscissaAxisRenderer(this.container);
-    this.ordinatesRenderers = [];
-    this.ordinatesRenderers.push(new OrdinatesAxisRenderer(this.container, 0));
-
     this.container.appendChild(this.abscissaContainer);
-    this.container.appendChild(this.ordinatesContainer);
-    this.container.appendChild(this.views[0]);
+
+    this.abscissaRenderer = new AbscissaAxisRenderer(this.abscissaContainer);
+    this.ordinatesRenderers = [];
+    this.gridRenderers = [];
+    this.views = [];
+
+    this.addMainEventListeners();
+    this.addRow('auto');
 
     this.renderingOptions.autoResizeOrdinatesAxis = true;
     this.renderingOptions.canvasBounds = [12, 12, 0, 0];
@@ -56,64 +49,62 @@ export class Chart implements IChart {
       this.views[0].offsetWidth,
       this.views[0].offsetHeight,
     ];
-
-    this.addEventListeners();
   }
 
-  private addEventListeners() {
+  private addViewEventListeners(view: HTMLElement) {
     let chartMoveStarted = false;
 
-    this.views.forEach(view => {
-      view.addEventListener('mousedown', (e) => {
-        chartMoveStarted = true;
+    view.addEventListener('mousedown', (e) => {
+      chartMoveStarted = true;
 
-        view.classList.add('au-moving');
-        this.renderingOptions.cursorPosition = [0, 0];
+      view.classList.add('au-moving');
+      this.renderingOptions.cursorPosition = [0, 0];
+      requestAnimationFrame(() => this.refreshViews());
+
+      e.preventDefault();
+    });
+
+    view.addEventListener('mousemove', (e) => {
+      if (chartMoveStarted) {
+        this.renderingOptions.displayOffset[0] -= e.movementX;
         requestAnimationFrame(() => this.refreshViews());
-
-        e.preventDefault();
-      });
-
-      view.addEventListener('mousemove', (e) => {
-        if (chartMoveStarted) {
-          this.renderingOptions.displayOffset[0] -= e.movementX;
-          requestAnimationFrame(() => this.refreshViews());
-        } else {
-          this.renderingOptions.cursorPosition = [
-            e.offsetX,
-            e.offsetY,
-          ];
-
-          requestAnimationFrame(() => this.refreshViews());
-        }
-      });
-
-      view.addEventListener('mouseup', (e) => {
-        chartMoveStarted = false;
-        view.classList.remove('au-moving');
-
+      } else {
         this.renderingOptions.cursorPosition = [
           e.offsetX,
           e.offsetY,
         ];
-        requestAnimationFrame(() => this.refreshViews());
-      });
 
-      view.addEventListener('mouseleave', (e) => {
-        chartMoveStarted = false;
-        view.classList.remove('au-moving');
-
-        this.renderingOptions.cursorPosition = [0, 0];
         requestAnimationFrame(() => this.refreshViews());
-      });
-
-      view.addEventListener('wheel', (e) => {
-        this.renderingOptions.displayOffset[0] += e.deltaX;
-        requestAnimationFrame(() => this.refreshViews());
-        e.preventDefault();
-      });
+      }
     });
 
+    view.addEventListener('mouseup', (e) => {
+      chartMoveStarted = false;
+      view.classList.remove('au-moving');
+
+      this.renderingOptions.cursorPosition = [
+        e.offsetX,
+        e.offsetY,
+      ];
+      requestAnimationFrame(() => this.refreshViews());
+    });
+
+    view.addEventListener('mouseleave', (e) => {
+      chartMoveStarted = false;
+      view.classList.remove('au-moving');
+
+      this.renderingOptions.cursorPosition = [0, 0];
+      requestAnimationFrame(() => this.refreshViews());
+    });
+
+    view.addEventListener('wheel', (e) => {
+      this.renderingOptions.displayOffset[0] += e.deltaX;
+      requestAnimationFrame(() => this.refreshViews());
+      e.preventDefault();
+    });
+  }
+
+  private addMainEventListeners() {
     let abscissaResizeStarted = false;
 
     this.abscissaContainer.addEventListener('mousedown', (event) => {
@@ -151,33 +142,38 @@ export class Chart implements IChart {
     // this.ordinatesContainer.addEventListener('mouseleave', () => ordinatesResizeStarted = false);
   }
 
-  addRow(height: string) {
+  addRow(height: 'auto' | string) {
+    const rowElement = this.createRow();
+
+    if (height === 'auto')
+      rowElement.style.height = '100%';
+    else rowElement.style.height = height;
+
+    this.rows.push(rowElement);
+    this.container.insertBefore(rowElement, this.abscissaContainer);
+
+    const row = this.rows.length - 1;
+
     const newView = document.createElement('div');
     newView.className = 'au-view';
     newView.style.zIndex = '999';
-
-    this.container.appendChild(newView);
     this.views.push(newView);
-    this.rowHeights.push(height);
+    this.rows[row].appendChild(newView);
+    this.addViewEventListeners(newView);
 
-    const row = this.rowHeights.length - 1;
-    this.ordinatesRenderers.push(new OrdinatesAxisRenderer(this.container, row));
+    this.ordinatesRenderers.push(new OrdinatesAxisRenderer(this.rows[row], row));
     this.renderingOptions.ordinatesRanges.push([0, 0]);
     this.renderingOptions.zoomRatios[1].push(1);
     this.renderingOptions.pointDistances[1].push(1);
 
-    newView.style.setProperty('--au-chart-row', (row + 1).toString());
-    this.container.style.setProperty('--au-row-count', (row + 2).toString());
-
-    const heightsProperty = this.rowHeights.reduce((prev, next) => `${prev} ${next}`);
-    this.container.style.setProperty('--au-row-heights', `${heightsProperty} 50px`);
+    this.gridRenderers.push(new GridRenderer(this.rows[row], row));
   }
 
   addTimeSeries(row: number = 0): TimeSeries {
     if (this.views.length - 1 < row)
       throw new Error("Invalid row number");
 
-    let timeSeries = new TimeSeries(this.container, row);
+    let timeSeries = new TimeSeries(this.rows[row], row);
     timeSeries.addEventListener('data-updated', () => {
       requestAnimationFrame(() => this.refreshViews());
     });
@@ -192,7 +188,7 @@ export class Chart implements IChart {
     if (this.views.length - 1 < row)
       throw new Error("Invalid row number");
 
-    let candleStickSeries = new CandleStickSeries(this.container, row);
+    let candleStickSeries = new CandleStickSeries(this.rows[row], row);
     candleStickSeries.addEventListener('data-updated', () => {
       requestAnimationFrame(() => this.refreshViews());
     });
@@ -204,18 +200,23 @@ export class Chart implements IChart {
   }
 
   private refreshViews(fitAbscissaAxis: boolean = false, fitOrdinateAxis: boolean = true) {
-    if (this.rowHeights.length === 0) return;
+    if (this.rows.length === 0) return;
 
     if (Math.max(...this.dataSources.map(v => v.getData().length)) === 0) {
       return;
     }
 
     this.refreshAbscissaRanges(fitAbscissaAxis);
-    const abscissaLabels = this.abscissaRenderer.render(this.renderingOptions);
+    const abscissaLabelProps = this.abscissaRenderer.render(this.renderingOptions);
 
-    this.ordinatesRenderers.forEach((renderer, row) => {
+    this.rows.forEach((_, row) => {
+      const ordinatesRenderer = this.ordinatesRenderers[row];
+      const gridRenderer = this.gridRenderers[row];
+
       this.refreshOrdinateRanges(row, fitOrdinateAxis);
-      renderer.render(this.renderingOptions);
+      const ordinatesLabelProps = ordinatesRenderer.render(this.renderingOptions);
+
+      gridRenderer.render({...this.renderingOptions, abscissaLabelProps, ordinatesLabelProps});
     });
 
     this.dataSources.forEach(s => s.render(this.renderingOptions));
@@ -242,8 +243,8 @@ export class Chart implements IChart {
       );
 
       let maxTotalAbscissaValues = (abscissaRange[1] - abscissaRange[0]) * abscissaStep;
-      if (fitToWidth && horizontalPointDistance * maxTotalAbscissaValues < this.renderingOptions.displaySize[0]) {
-        horizontalPointDistance = Math.floor(this.renderingOptions.displaySize[0] / maxTotalAbscissaValues);
+      if (fitToWidth && horizontalPointDistance * maxTotalAbscissaValues < this.views[0].offsetWidth) {
+        horizontalPointDistance = Math.floor(this.views[0].offsetWidth / maxTotalAbscissaValues);
       }
 
       // Prevents the zoom from reducing past the minimum distance
@@ -251,7 +252,7 @@ export class Chart implements IChart {
     }
 
     if (horizontalPointDistance > 0) {
-      let maxHorizontalPoints = this.renderingOptions.displaySize[0] / horizontalPointDistance;
+      let maxHorizontalPoints = this.views[0].offsetWidth / horizontalPointDistance;
       let horizontalPointOffset = this.renderingOptions.displayOffset[0] / horizontalPointDistance;
 
       abscissaRange[1] = abscissaRange[1] + horizontalPointOffset;
@@ -319,5 +320,11 @@ export class Chart implements IChart {
     }
 
     this.renderingOptions.ordinatesRanges[row] = ordinatesRange;
+  }
+
+  private createRow(): HTMLElement {
+    const row = document.createElement('div');
+    row.classList.add('au-row');
+    return row;
   }
 }

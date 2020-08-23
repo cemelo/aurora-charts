@@ -1,4 +1,4 @@
-import {ILabelGenerator} from './labeling-api';
+import {ILabelGenerator, ILabelProps} from './labeling-api';
 
 export type Vertical = number;
 export type Horizontal = number;
@@ -16,7 +16,14 @@ export type Left = number;
 
 export interface IRenderer<T> {
   resize(width: number, height: number, options: T);
+
   render(options: T);
+}
+
+export interface RenderingStyle {
+  axisStrokeStyle: string | CanvasPattern | CanvasGradient;
+  axisFont: string;
+  gridStrokeStyle: string | CanvasPattern | CanvasGradient;
 }
 
 export class RenderingOptions {
@@ -36,6 +43,8 @@ export class RenderingOptions {
 
   cursorPosition: [Horizontal, Vertical];
 
+  style: RenderingStyle;
+
   constructor() {
     this.canvasBounds = [0, 0, 0, 0];
     this.pixelRatio = window?.devicePixelRatio || 1;
@@ -47,6 +56,11 @@ export class RenderingOptions {
     this.zoomRatios = [1, [1]];
     this.displayOffset = [0, 0];
     this.cursorPosition = [0, 0];
+    this.style = {
+      axisFont: `${12 * this.pixelRatio}px system-ui, sans-serif`,
+      axisStrokeStyle: 'rgba(87, 87, 87, 1)',
+      gridStrokeStyle: 'rgba(146, 146, 146, 1)',
+    };
   }
 }
 
@@ -57,4 +71,9 @@ export interface IAxisProperties {
   displayRatio: number;
   labels: number[];
   step: number;
+}
+
+export interface IGridOptions {
+  abscissaLabelProps: ILabelProps,
+  ordinatesLabelProps: ILabelProps
 }

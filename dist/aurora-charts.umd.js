@@ -16,6 +16,11 @@
             this.zoomRatios = [1, [1]];
             this.displayOffset = [0, 0];
             this.cursorPosition = [0, 0];
+            this.style = {
+                axisFont: `${12 * this.pixelRatio}px system-ui, sans-serif`,
+                axisStrokeStyle: 'rgba(87, 87, 87, 1)',
+                gridStrokeStyle: 'rgba(146, 146, 146, 1)',
+            };
         }
     }
 
@@ -61,6 +66,8 @@
             const canvas = document.createElement('canvas');
             canvas.className = 'au-view';
             canvas.style.setProperty('--au-chart-row', (row + 1).toString());
+            if (row > 0)
+                canvas.setAttribute('data-secondary-row', 'true');
             container.appendChild(canvas);
             this.row = row;
             this.target = new TimeSeriesLocalRenderer(canvas, row, 2, 'rgba(255, 0, 0, 1)');
@@ -166,7 +173,7 @@
             const actualHeight = this.canvas.offsetHeight - options.canvasBounds[0] - options.canvasBounds[1];
             const rangeOrdinates = options.ordinatesRanges[this.row][1] - options.ordinatesRanges[this.row][0];
             const stepOrdinates = actualHeight / rangeOrdinates;
-            const actualWidth = options.displaySize[0] - options.canvasBounds[2] - options.canvasBounds[3];
+            const actualWidth = this.canvas.offsetWidth - options.canvasBounds[2] - options.canvasBounds[3];
             const rangeAbscissa = options.abscissaRange[1] - options.abscissaRange[0];
             const stepAbscissa = actualWidth / rangeAbscissa;
             options.data.filter(({ x, y }) => (x >= options.abscissaRange[0] - stepAbscissa && x <= options.abscissaRange[1] + stepAbscissa)).forEach(({ x, y }, idx) => {
@@ -197,6 +204,8 @@
             const canvas = document.createElement('canvas');
             canvas.className = 'au-view';
             canvas.style.setProperty('--au-chart-row', (row + 1).toString());
+            if (row > 0)
+                canvas.setAttribute('data-secondary-row', 'true');
             container.appendChild(canvas);
             const defaultOptions = {
                 strokeStyle: (record) => {
@@ -338,7 +347,7 @@
             const actualHeight = this.canvas.offsetHeight - options.canvasBounds[0] - options.canvasBounds[1];
             const rangeOrdinates = options.ordinatesRanges[this.row][1] - options.ordinatesRanges[this.row][0];
             const stepOrdinates = actualHeight / rangeOrdinates;
-            const actualWidth = options.displaySize[0] - options.canvasBounds[2] - options.canvasBounds[3];
+            const actualWidth = this.canvas.offsetWidth - options.canvasBounds[2] - options.canvasBounds[3];
             const rangeAbscissa = options.abscissaRange[1] - options.abscissaRange[0];
             const stepAbscissa = actualWidth / rangeAbscissa;
             options.data.filter(({ timestamp }) => (timestamp >= options.abscissaRange[0] - stepAbscissa && timestamp <= options.abscissaRange[1] + stepAbscissa)).forEach((record, idx) => {
@@ -498,6 +507,8 @@
     };
 
     function shallowArrayCompare(a, b) {
+        if (a === undefined || b === undefined)
+            return false;
         if (a.length !== b.length)
             return false;
         for (let i = 0; i < a.length; i++) {
@@ -533,20 +544,21 @@
             this.cachedRenderingOptions = new RenderingOptions();
             this.canvas = canvas;
             this.labelGenerator = labelGenerator;
+            this.cachedLabelProps = { labels: [], max: 0, min: 0, step: 0 };
         }
         render(options) {
             const shouldRedraw = this.canvas.width !== this.canvas.offsetWidth * options.pixelRatio ||
                 this.canvas.height !== this.canvas.offsetHeight * options.pixelRatio ||
                 !shallowArrayCompare(options.abscissaRange, this.cachedRenderingOptions.abscissaRange);
             if (!shouldRedraw)
-                return;
+                return this.cachedLabelProps;
             this.canvas.width = this.canvas.offsetWidth * options.pixelRatio;
             this.canvas.height = this.canvas.offsetHeight * options.pixelRatio;
             const ctx = this.canvas.getContext('2d');
             ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
             ctx.beginPath();
-            ctx.strokeStyle = 'rgba(87, 87, 87, 1)';
-            ctx.font = `${12 * options.pixelRatio}px system-ui, sans-serif`;
+            ctx.strokeStyle = options.style.axisStrokeStyle;
+            ctx.font = options.style.axisFont;
             ctx.textBaseline = 'top';
             ctx.textAlign = 'center';
             let maxTextWidth = 0;
@@ -556,10 +568,13 @@
             }
             const minTextSpacing = 20 * options.pixelRatio;
             const maxLabels = Math.floor((options.displaySize[0] * options.pixelRatio + minTextSpacing) / (maxTextWidth + minTextSpacing));
-            const actualWidth = options.displaySize[0] - options.canvasBounds[2] - options.canvasBounds[3];
             const labelProps = ExtendedWilkinson.generate(options.abscissaRange[0], options.abscissaRange[1], maxLabels);
+            const actualWidth = options.displaySize[0] - options.canvasBounds[2] - options.canvasBounds[3];
             const range = options.abscissaRange[1] - options.abscissaRange[0];
             const step = actualWidth / range;
+            // Boundary
+            ctx.moveTo(0, options.pixelRatio);
+            ctx.lineTo(this.canvas.width, options.pixelRatio);
             labelProps.labels.forEach(value => {
                 const label = this.formatter(value);
                 const xPos = calcX(value, step, options) * options.pixelRatio;
@@ -569,12 +584,12 @@
                 ctx.moveTo(xPos, 0);
                 ctx.lineTo(xPos, 5 * options.pixelRatio);
             });
-            this.cachedLabels = labelProps.labels;
             this.cachedActualWidth = actualWidth;
             this.cachedStep = step;
             this.cachedRenderingOptions.abscissaRange = options.abscissaRange;
+            this.cachedLabelProps = labelProps;
             ctx.stroke();
-            return labelProps.labels;
+            return this.cachedLabelProps;
         }
         resize(width, height, options) {
             this.render(options);
@@ -588,12 +603,14 @@
     }
 
     class OrdinatesAxisRenderer {
-        constructor(container, rowNumber) {
+        constructor(container, row) {
             this.canvas = document.createElement('canvas');
             this.canvas.classList.add('au-ordinates');
-            this.canvas.style.setProperty('--au-chart-row', (rowNumber + 1).toString());
+            this.canvas.style.setProperty('--au-chart-row', (row + 1).toString());
+            if (row > 0)
+                this.canvas.setAttribute('data-secondary-row', 'true');
             container.appendChild(this.canvas);
-            this.target = new OrdinatesLocalAxisRenderer(this.canvas, ExtendedWilkinson, rowNumber);
+            this.target = new OrdinatesLocalAxisRenderer(this.canvas, ExtendedWilkinson, row);
         }
         render(options) {
             return this.target.render(options);
@@ -616,19 +633,21 @@
             this.canvas = canvas;
             this.row = rowNumber;
             this.labelGenerator = labelGenerator;
+            this.cachedLabelProps = { labels: [], max: 0, min: 0, step: 0 };
         }
         render(options) {
             const shouldRedraw = this.canvas.width !== this.canvas.offsetWidth * options.pixelRatio ||
                 this.canvas.height !== this.canvas.offsetHeight * options.pixelRatio ||
                 !shallowArrayCompare(options.ordinatesRanges[this.row], this.cachedRenderingOptions.ordinatesRanges[this.row]);
             if (!shouldRedraw)
-                return;
+                return this.cachedLabelProps;
             this.canvas.width = this.canvas.offsetWidth * options.pixelRatio;
             this.canvas.height = this.canvas.offsetHeight * options.pixelRatio;
             const ctx = this.canvas.getContext('2d');
             ctx.clearRect(0, 0, this.canvas.width * options.pixelRatio, this.canvas.height * options.pixelRatio);
             ctx.beginPath();
-            ctx.font = `${12 * options.pixelRatio}px system-ui, sans-serif`;
+            ctx.font = options.style.axisFont;
+            ctx.strokeStyle = options.style.axisStrokeStyle;
             ctx.textBaseline = 'middle';
             const fontHeight = ctx.measureText('0').actualBoundingBoxAscent;
             const minTextSpacing = 50 * options.pixelRatio;
@@ -637,6 +656,9 @@
             const labelProps = ExtendedWilkinson.generate(options.ordinatesRanges[this.row][0], options.ordinatesRanges[this.row][1], maxLabels);
             const range = options.ordinatesRanges[this.row][1] - options.ordinatesRanges[this.row][0];
             const step = actualHeight / range;
+            // Boundary
+            ctx.moveTo(options.pixelRatio, 0);
+            ctx.lineTo(options.pixelRatio, this.canvas.height + 2);
             labelProps.labels.forEach(value => {
                 const label = this.formatter(value);
                 const xPos = options.pixelRatio;
@@ -650,8 +672,9 @@
             this.cachedActualHeight = actualHeight;
             this.cachedStep = step;
             this.cachedRenderingOptions.ordinatesRanges[this.row] = options.ordinatesRanges[this.row];
+            this.cachedLabelProps = labelProps;
             ctx.stroke();
-            return labelProps.labels;
+            return this.cachedLabelProps;
         }
         resize(width, height, options) {
             this.render(options);
@@ -672,84 +695,150 @@
         return text;
     }
 
+    class GridRenderer {
+        constructor(container, row) {
+            this.canvas = document.createElement('canvas');
+            this.canvas.classList.add('au-grid');
+            this.canvas.style.setProperty('--au-chart-row', (row + 1).toString());
+            container.appendChild(this.canvas);
+            this.target = new GridLocalRenderer(this.canvas, row);
+            this.row = row;
+        }
+        render(options) {
+            return this.target.render(options);
+        }
+        resize(width, height, options) {
+            this.target.resize(width, height, options);
+        }
+    }
+    class GridLocalRenderer {
+        constructor(canvas, row) {
+            this.cachedRenderingOptions = new RenderingOptions();
+            this.canvas = canvas;
+            this.row = row;
+        }
+        render(options) {
+            var _a, _b, _c, _d, _e, _f;
+            const shouldRedrawGrid = this.canvas.width !== this.canvas.offsetWidth * options.pixelRatio ||
+                this.canvas.height !== this.canvas.offsetHeight * options.pixelRatio ||
+                !shallowArrayCompare(options.cursorPosition, this.cachedRenderingOptions.cursorPosition) ||
+                !shallowArrayCompare((_a = options.abscissaLabelProps) === null || _a === void 0 ? void 0 : _a.labels, (_b = this.cachedAbscissaLabels) === null || _b === void 0 ? void 0 : _b.labels) ||
+                !shallowArrayCompare((_c = options.ordinatesLabelProps) === null || _c === void 0 ? void 0 : _c.labels, (_d = this.cachedOrdinateLabels) === null || _d === void 0 ? void 0 : _d.labels) ||
+                !shallowArrayCompare(options.abscissaRange, this.cachedRenderingOptions.abscissaRange) ||
+                !shallowArrayCompare(options.ordinatesRanges[this.row], this.cachedRenderingOptions.ordinatesRanges[this.row]);
+            if (!shouldRedrawGrid)
+                return;
+            this.canvas.height = this.canvas.offsetHeight * options.pixelRatio;
+            this.canvas.width = this.canvas.offsetWidth * options.pixelRatio;
+            const ctx = this.canvas.getContext('2d');
+            ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            ctx.beginPath();
+            // ctx.font = '48px system-ui, sans-serif';
+            // ctx.fillText("TEST", 40, 40);
+            this.cachedAbscissaLabels = options.abscissaLabelProps;
+            this.cachedOrdinateLabels = options.ordinatesLabelProps;
+            // Grid
+            ctx.strokeStyle = options.style.gridStrokeStyle;
+            const actualWidth = this.canvas.width - options.canvasBounds[2] - options.canvasBounds[3];
+            const aRange = options.abscissaRange[1] - options.abscissaRange[0];
+            const aStep = actualWidth / aRange;
+            (_e = this.cachedAbscissaLabels) === null || _e === void 0 ? void 0 : _e.labels.forEach(value => {
+                const xPos = calcX(value, aStep, options);
+                if (xPos > this.canvas.width ||
+                    xPos < 0)
+                    return;
+                ctx.moveTo(xPos, 0);
+                ctx.lineTo(xPos, this.canvas.height);
+            });
+            const actualHeight = this.canvas.offsetHeight - options.canvasBounds[0] - options.canvasBounds[1];
+            const oRange = options.ordinatesRanges[this.row][1] - options.ordinatesRanges[this.row][0];
+            const oStep = actualHeight / oRange;
+            (_f = this.cachedOrdinateLabels) === null || _f === void 0 ? void 0 : _f.labels.forEach(value => {
+                const yPos = calcY(this.row, actualHeight, value, oStep, options) * options.pixelRatio;
+                if (yPos > this.canvas.height ||
+                    yPos < 0)
+                    return;
+                ctx.moveTo(0, yPos);
+                ctx.lineTo(this.canvas.width + 1, yPos);
+            });
+            ctx.stroke();
+        }
+        resize(width, height, options) {
+            this.render(options);
+        }
+    }
+
     // One ordinate range per row
     class Chart {
         constructor(container) {
             this.renderingOptions = new RenderingOptions();
-            this.rowHeights = ['auto'];
+            this.rows = [];
             this.componentId = createId();
             this.dataSources = [];
             const wrapper = document.createElement('div');
             wrapper.classList.add('au-chart', this.componentId);
             container.appendChild(wrapper);
             this.container = wrapper;
-            this.views = [];
-            this.views.push(document.createElement('div'));
-            this.views[0].className = 'au-view';
-            this.views[0].style.zIndex = '999';
             this.abscissaContainer = document.createElement('div');
             this.abscissaContainer.classList.add('au-abscissa', 'au-container', 'au-resizeable');
-            this.ordinatesContainer = document.createElement('div');
-            this.ordinatesContainer.classList.add('au-ordinates', 'au-container');
-            // this.baseRenderer = new ChartBase(this.container);
-            this.abscissaRenderer = new AbscissaAxisRenderer(this.container);
-            this.ordinatesRenderers = [];
-            this.ordinatesRenderers.push(new OrdinatesAxisRenderer(this.container, 0));
             this.container.appendChild(this.abscissaContainer);
-            this.container.appendChild(this.ordinatesContainer);
-            this.container.appendChild(this.views[0]);
+            this.abscissaRenderer = new AbscissaAxisRenderer(this.abscissaContainer);
+            this.ordinatesRenderers = [];
+            this.gridRenderers = [];
+            this.views = [];
+            this.addMainEventListeners();
+            this.addRow('auto');
             this.renderingOptions.autoResizeOrdinatesAxis = true;
             this.renderingOptions.canvasBounds = [12, 12, 0, 0];
             this.renderingOptions.displaySize = [
                 this.views[0].offsetWidth,
                 this.views[0].offsetHeight,
             ];
-            this.addEventListeners();
         }
-        addEventListeners() {
+        addViewEventListeners(view) {
             let chartMoveStarted = false;
-            this.views.forEach(view => {
-                view.addEventListener('mousedown', (e) => {
-                    chartMoveStarted = true;
-                    view.classList.add('au-moving');
-                    this.renderingOptions.cursorPosition = [0, 0];
+            view.addEventListener('mousedown', (e) => {
+                chartMoveStarted = true;
+                view.classList.add('au-moving');
+                this.renderingOptions.cursorPosition = [0, 0];
+                requestAnimationFrame(() => this.refreshViews());
+                e.preventDefault();
+            });
+            view.addEventListener('mousemove', (e) => {
+                if (chartMoveStarted) {
+                    this.renderingOptions.displayOffset[0] -= e.movementX;
                     requestAnimationFrame(() => this.refreshViews());
-                    e.preventDefault();
-                });
-                view.addEventListener('mousemove', (e) => {
-                    if (chartMoveStarted) {
-                        this.renderingOptions.displayOffset[0] -= e.movementX;
-                        requestAnimationFrame(() => this.refreshViews());
-                    }
-                    else {
-                        this.renderingOptions.cursorPosition = [
-                            e.offsetX,
-                            e.offsetY,
-                        ];
-                        requestAnimationFrame(() => this.refreshViews());
-                    }
-                });
-                view.addEventListener('mouseup', (e) => {
-                    chartMoveStarted = false;
-                    view.classList.remove('au-moving');
+                }
+                else {
                     this.renderingOptions.cursorPosition = [
                         e.offsetX,
                         e.offsetY,
                     ];
                     requestAnimationFrame(() => this.refreshViews());
-                });
-                view.addEventListener('mouseleave', (e) => {
-                    chartMoveStarted = false;
-                    view.classList.remove('au-moving');
-                    this.renderingOptions.cursorPosition = [0, 0];
-                    requestAnimationFrame(() => this.refreshViews());
-                });
-                view.addEventListener('wheel', (e) => {
-                    this.renderingOptions.displayOffset[0] += e.deltaX;
-                    requestAnimationFrame(() => this.refreshViews());
-                    e.preventDefault();
-                });
+                }
             });
+            view.addEventListener('mouseup', (e) => {
+                chartMoveStarted = false;
+                view.classList.remove('au-moving');
+                this.renderingOptions.cursorPosition = [
+                    e.offsetX,
+                    e.offsetY,
+                ];
+                requestAnimationFrame(() => this.refreshViews());
+            });
+            view.addEventListener('mouseleave', (e) => {
+                chartMoveStarted = false;
+                view.classList.remove('au-moving');
+                this.renderingOptions.cursorPosition = [0, 0];
+                requestAnimationFrame(() => this.refreshViews());
+            });
+            view.addEventListener('wheel', (e) => {
+                this.renderingOptions.displayOffset[0] += e.deltaX;
+                requestAnimationFrame(() => this.refreshViews());
+                e.preventDefault();
+            });
+        }
+        addMainEventListeners() {
             let abscissaResizeStarted = false;
             this.abscissaContainer.addEventListener('mousedown', (event) => {
                 abscissaResizeStarted = true;
@@ -783,26 +872,30 @@
             // this.ordinatesContainer.addEventListener('mouseleave', () => ordinatesResizeStarted = false);
         }
         addRow(height) {
+            const rowElement = this.createRow();
+            if (height === 'auto')
+                rowElement.style.height = '100%';
+            else
+                rowElement.style.height = height;
+            this.rows.push(rowElement);
+            this.container.insertBefore(rowElement, this.abscissaContainer);
+            const row = this.rows.length - 1;
             const newView = document.createElement('div');
             newView.className = 'au-view';
             newView.style.zIndex = '999';
-            this.container.appendChild(newView);
             this.views.push(newView);
-            this.rowHeights.push(height);
-            const row = this.rowHeights.length - 1;
-            this.ordinatesRenderers.push(new OrdinatesAxisRenderer(this.container, row));
+            this.rows[row].appendChild(newView);
+            this.addViewEventListeners(newView);
+            this.ordinatesRenderers.push(new OrdinatesAxisRenderer(this.rows[row], row));
             this.renderingOptions.ordinatesRanges.push([0, 0]);
             this.renderingOptions.zoomRatios[1].push(1);
             this.renderingOptions.pointDistances[1].push(1);
-            newView.style.setProperty('--au-chart-row', (row + 1).toString());
-            this.container.style.setProperty('--au-row-count', (row + 2).toString());
-            const heightsProperty = this.rowHeights.reduce((prev, next) => `${prev} ${next}`);
-            this.container.style.setProperty('--au-row-heights', `${heightsProperty} 50px`);
+            this.gridRenderers.push(new GridRenderer(this.rows[row], row));
         }
         addTimeSeries(row = 0) {
             if (this.views.length - 1 < row)
                 throw new Error("Invalid row number");
-            let timeSeries = new TimeSeries(this.container, row);
+            let timeSeries = new TimeSeries(this.rows[row], row);
             timeSeries.addEventListener('data-updated', () => {
                 requestAnimationFrame(() => this.refreshViews());
             });
@@ -813,7 +906,7 @@
         addCandleStickSeries(row = 0) {
             if (this.views.length - 1 < row)
                 throw new Error("Invalid row number");
-            let candleStickSeries = new CandleStickSeries(this.container, row);
+            let candleStickSeries = new CandleStickSeries(this.rows[row], row);
             candleStickSeries.addEventListener('data-updated', () => {
                 requestAnimationFrame(() => this.refreshViews());
             });
@@ -822,16 +915,19 @@
             return candleStickSeries;
         }
         refreshViews(fitAbscissaAxis = false, fitOrdinateAxis = true) {
-            if (this.rowHeights.length === 0)
+            if (this.rows.length === 0)
                 return;
             if (Math.max(...this.dataSources.map(v => v.getData().length)) === 0) {
                 return;
             }
             this.refreshAbscissaRanges(fitAbscissaAxis);
-            const abscissaLabels = this.abscissaRenderer.render(this.renderingOptions);
-            this.ordinatesRenderers.forEach((renderer, row) => {
+            const abscissaLabelProps = this.abscissaRenderer.render(this.renderingOptions);
+            this.rows.forEach((_, row) => {
+                const ordinatesRenderer = this.ordinatesRenderers[row];
+                const gridRenderer = this.gridRenderers[row];
                 this.refreshOrdinateRanges(row, fitOrdinateAxis);
-                renderer.render(this.renderingOptions);
+                const ordinatesLabelProps = ordinatesRenderer.render(this.renderingOptions);
+                gridRenderer.render(Object.assign(Object.assign({}, this.renderingOptions), { abscissaLabelProps, ordinatesLabelProps }));
             });
             this.dataSources.forEach(s => s.render(this.renderingOptions));
         }
@@ -849,14 +945,14 @@
             if (horizontalPointDistance == null || fitToWidth) {
                 horizontalPointDistance = Math.max(minHorizontalPointDistance, ...this.dataSources.map(r => r.defaultDistance[0] * this.renderingOptions.zoomRatios[0]));
                 let maxTotalAbscissaValues = (abscissaRange[1] - abscissaRange[0]) * abscissaStep;
-                if (fitToWidth && horizontalPointDistance * maxTotalAbscissaValues < this.renderingOptions.displaySize[0]) {
-                    horizontalPointDistance = Math.floor(this.renderingOptions.displaySize[0] / maxTotalAbscissaValues);
+                if (fitToWidth && horizontalPointDistance * maxTotalAbscissaValues < this.views[0].offsetWidth) {
+                    horizontalPointDistance = Math.floor(this.views[0].offsetWidth / maxTotalAbscissaValues);
                 }
                 // Prevents the zoom from reducing past the minimum distance
                 this.renderingOptions.zoomRatios[0] = horizontalPointDistance / Math.max(...this.dataSources.map(r => r.defaultDistance[0]));
             }
             if (horizontalPointDistance > 0) {
-                let maxHorizontalPoints = this.renderingOptions.displaySize[0] / horizontalPointDistance;
+                let maxHorizontalPoints = this.views[0].offsetWidth / horizontalPointDistance;
                 let horizontalPointOffset = this.renderingOptions.displayOffset[0] / horizontalPointDistance;
                 abscissaRange[1] = abscissaRange[1] + horizontalPointOffset;
                 abscissaRange[0] = abscissaRange[1] - abscissaStep * maxHorizontalPoints;
@@ -905,6 +1001,11 @@
                 ordinatesRange[0] = half - (ordinateStep * maxVerticalPoints / 2);
             }
             this.renderingOptions.ordinatesRanges[row] = ordinatesRange;
+        }
+        createRow() {
+            const row = document.createElement('div');
+            row.classList.add('au-row');
+            return row;
         }
     }
 
