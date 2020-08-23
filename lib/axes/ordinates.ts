@@ -13,7 +13,6 @@ export class OrdinatesAxisRenderer implements IAxisRenderer<RenderingOptions> {
   constructor(container: HTMLElement, row: number) {
     this.canvas = document.createElement('canvas');
     this.canvas.classList.add('au-ordinates');
-    this.canvas.style.setProperty('--au-chart-row', (row + 1).toString());
 
     if (row > 0) this.canvas.setAttribute('data-secondary-row', 'true');
 

@@ -12,7 +12,6 @@ export class GridRenderer implements IRenderer<RenderingOptions & IGridOptions> 
   constructor(container: HTMLElement, row: number) {
     this.canvas = document.createElement('canvas');
     this.canvas.classList.add('au-grid');
-    this.canvas.style.setProperty('--au-chart-row', (row + 1).toString());
     container.appendChild(this.canvas);
 
     this.target = new GridLocalRenderer(this.canvas, row);

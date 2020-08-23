@@ -20,7 +20,6 @@ export class TimeSeries extends EventSource<DataSourceEvent> implements IDataSou
 
     const canvas = document.createElement('canvas');
     canvas.className = 'au-view';
-    canvas.style.setProperty('--au-chart-row', (row + 1).toString());
 
     if (row > 0) canvas.setAttribute('data-secondary-row', 'true');
 

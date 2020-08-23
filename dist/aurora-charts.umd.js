@@ -65,7 +65,6 @@
             this.data = [];
             const canvas = document.createElement('canvas');
             canvas.className = 'au-view';
-            canvas.style.setProperty('--au-chart-row', (row + 1).toString());
             if (row > 0)
                 canvas.setAttribute('data-secondary-row', 'true');
             container.appendChild(canvas);
@@ -606,7 +605,6 @@
         constructor(container, row) {
             this.canvas = document.createElement('canvas');
             this.canvas.classList.add('au-ordinates');
-            this.canvas.style.setProperty('--au-chart-row', (row + 1).toString());
             if (row > 0)
                 this.canvas.setAttribute('data-secondary-row', 'true');
             container.appendChild(this.canvas);
@@ -699,7 +697,6 @@
         constructor(container, row) {
             this.canvas = document.createElement('canvas');
             this.canvas.classList.add('au-grid');
-            this.canvas.style.setProperty('--au-chart-row', (row + 1).toString());
             container.appendChild(this.canvas);
             this.target = new GridLocalRenderer(this.canvas, row);
             this.row = row;
