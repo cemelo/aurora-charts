@@ -25,6 +25,33 @@
   &:not(:first-child) {
     border-top: 1px solid black;
   }
+
+  &.au-title-visible {
+    grid-template-rows: 15px auto;
+    margin-bottom: 14px;
+  }
+
+  .au-section-title {
+    grid-row: 1;
+
+    h2 {
+      font-size: 12px;
+      margin: 0;
+      padding: 0;
+    }
+  }
+
+  .au-view {
+    grid-column: 1;
+    grid-row: var(--au-chart-row);
+    width: 100%;
+    cursor: crosshair;
+    z-index: 1;
+
+    &.au-moving {
+      cursor: grabbing;
+    }
+  }
 }
 
 .au-chart .au-abscissa {
@@ -50,19 +77,6 @@
 
 .au-chart .au-container {
   z-index: 999;
-}
-
-.au-chart .au-view {
-  grid-column: 1;
-  grid-row: var(--au-chart-row);
-  height: 100%;
-  width: 100%;
-  cursor: crosshair;
-  z-index: 1;
-
-  &.au-moving {
-    cursor: grabbing;
-  }
 }
 
 .au-chart .au-gutter {

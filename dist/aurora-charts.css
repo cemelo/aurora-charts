@@ -23,6 +23,28 @@
 .au-chart .au-row:not(:first-child) {
   border-top: 1px solid black;
 }
+.au-chart .au-row.au-title-visible {
+  grid-template-rows: 15px auto;
+  margin-bottom: 14px;
+}
+.au-chart .au-row .au-section-title {
+  grid-row: 1;
+}
+.au-chart .au-row .au-section-title h2 {
+  font-size: 12px;
+  margin: 0;
+  padding: 0;
+}
+.au-chart .au-row .au-view {
+  grid-column: 1;
+  grid-row: var(--au-chart-row);
+  width: 100%;
+  cursor: crosshair;
+  z-index: 1;
+}
+.au-chart .au-row .au-view.au-moving {
+  cursor: grabbing;
+}
 .au-chart .au-abscissa {
   height: 50px;
   width: 100%;
@@ -42,17 +64,6 @@
 }
 .au-chart .au-container {
   z-index: 999;
-}
-.au-chart .au-view {
-  grid-column: 1;
-  grid-row: var(--au-chart-row);
-  height: 100%;
-  width: 100%;
-  cursor: crosshair;
-  z-index: 1;
-}
-.au-chart .au-view.au-moving {
-  cursor: grabbing;
 }
 .au-chart .au-gutter {
   background-color: black;

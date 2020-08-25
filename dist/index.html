@@ -23,7 +23,7 @@
     <script type="application/javascript">
         let chartContainer = document.getElementById('chart');
         let chart = new auroraCharts(chartContainer);
-        chart.addRow('50px');
+        chart.addRow('50px', 'VWAP');
 
         let series = chart.addCandleStickSeries();
         let series2 = chart.addTimeSeries(1);

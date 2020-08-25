@@ -543,7 +543,6 @@
             this.cachedRenderingOptions = new RenderingOptions();
             this.canvas = canvas;
             this.labelGenerator = labelGenerator;
-            this.cachedLabelProps = { labels: [], max: 0, min: 0, step: 0 };
         }
         render(options) {
             const shouldRedraw = this.canvas.width !== this.canvas.offsetWidth * options.pixelRatio ||
@@ -561,20 +560,43 @@
             ctx.textBaseline = 'top';
             ctx.textAlign = 'center';
             let maxTextWidth = 0;
-            for (let value of this.labelGenerator.generate(options.abscissaRange[0], options.abscissaRange[1], 20).labels) {
+            for (let value of (this.cachedLabelProps || this.labelGenerator.generate(options.abscissaRange[0], options.abscissaRange[1], 20)).labels) {
                 const width = ctx.measureText(this.formatter(value)).width;
                 maxTextWidth = Math.max(maxTextWidth, width);
             }
             const minTextSpacing = 20 * options.pixelRatio;
             const maxLabels = Math.floor((options.displaySize[0] * options.pixelRatio + minTextSpacing) / (maxTextWidth + minTextSpacing));
-            const labelProps = ExtendedWilkinson.generate(options.abscissaRange[0], options.abscissaRange[1], maxLabels);
+            // We only update cached labels if the zoom factor is changed. Otherwise, just use the properties to generate
+            // from whatever we have cached.
+            if (this.cachedLabelProps === undefined || this.cachedRenderingOptions.zoomRatios[0] != options.zoomRatios[0]) {
+                this.cachedLabelProps = ExtendedWilkinson.generate(options.abscissaRange[0], options.abscissaRange[1], maxLabels);
+            }
+            else {
+                this.cachedLabelProps.labels = [];
+                // This ugly branch is necessary to avoid float point overflow
+                if (options.abscissaRange[0] < this.cachedLabelProps.min) {
+                    let currLabel = options.abscissaRange[0] + Math.abs(options.abscissaRange[0] - this.cachedLabelProps.min) % this.cachedLabelProps.step - this.cachedLabelProps.step;
+                    while (currLabel <= options.abscissaRange[1]) {
+                        this.cachedLabelProps.labels.push(currLabel);
+                        currLabel = Number((currLabel + this.cachedLabelProps.step).toPrecision(10));
+                    }
+                }
+                else {
+                    let currLabel = this.cachedLabelProps.min;
+                    while (currLabel <= options.abscissaRange[1]) {
+                        if (currLabel >= options.abscissaRange[0])
+                            this.cachedLabelProps.labels.push(currLabel);
+                        currLabel = Number((currLabel + this.cachedLabelProps.step).toPrecision(10));
+                    }
+                }
+            }
             const actualWidth = options.displaySize[0] - options.canvasBounds[2] - options.canvasBounds[3];
             const range = options.abscissaRange[1] - options.abscissaRange[0];
             const step = actualWidth / range;
             // Boundary
             ctx.moveTo(0, options.pixelRatio);
             ctx.lineTo(this.canvas.width, options.pixelRatio);
-            labelProps.labels.forEach(value => {
+            this.cachedLabelProps.labels.forEach(value => {
                 const label = this.formatter(value);
                 const xPos = calcX(value, step, options) * options.pixelRatio;
                 if (xPos < 0 || xPos > options.displaySize[0] * options.pixelRatio)
@@ -586,7 +608,7 @@
             this.cachedActualWidth = actualWidth;
             this.cachedStep = step;
             this.cachedRenderingOptions.abscissaRange = options.abscissaRange;
-            this.cachedLabelProps = labelProps;
+            this.cachedRenderingOptions.zoomRatios[0] = options.zoomRatios[0];
             ctx.stroke();
             return this.cachedLabelProps;
         }
@@ -868,7 +890,7 @@
             // this.ordinatesContainer.addEventListener('mouseup', () => ordinatesResizeStarted = false);
             // this.ordinatesContainer.addEventListener('mouseleave', () => ordinatesResizeStarted = false);
         }
-        addRow(height) {
+        addRow(height, title) {
             const rowElement = this.createRow();
             if (height === 'auto')
                 rowElement.style.height = '100%';
@@ -888,6 +910,16 @@
             this.renderingOptions.zoomRatios[1].push(1);
             this.renderingOptions.pointDistances[1].push(1);
             this.gridRenderers.push(new GridRenderer(this.rows[row], row));
+            if (title !== undefined) {
+                const titleWrapper = document.createElement('div');
+                const titleElement = document.createElement('h2');
+                titleElement.innerText = title;
+                titleWrapper.classList.add('au-section-title');
+                titleWrapper.appendChild(titleElement);
+                this.rows[row].prepend(titleWrapper);
+                this.rows[row].style.setProperty('--au-chart-row', '2');
+                this.rows[row].classList.add('au-title-visible');
+            }
         }
         addTimeSeries(row = 0) {
             if (this.views.length - 1 < row)
@@ -1000,7 +1032,7 @@
             this.renderingOptions.ordinatesRanges[row] = ordinatesRange;
         }
         createRow() {
-            const row = document.createElement('div');
+            let row = document.createElement('div');
             row.classList.add('au-row');
             return row;
         }

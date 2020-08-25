@@ -44,12 +44,11 @@ class AbscissaLocalAxisRenderer implements IAxisRenderer<RenderingOptions> {
   private cachedActualWidth: number;
   private cachedStep: number;
   private cachedRenderingOptions: RenderingOptions = new RenderingOptions();
-  private cachedLabelProps: ILabelProps;
+  private cachedLabelProps: ILabelProps | undefined;
 
   constructor(canvas: HTMLCanvasElement, labelGenerator: ILabelGenerator) {
     this.canvas = canvas;
     this.labelGenerator = labelGenerator;
-    this.cachedLabelProps = {labels: [], max: 0, min: 0, step: 0};
   }
 
   render(options: RenderingOptions): ILabelProps {
@@ -73,7 +72,7 @@ class AbscissaLocalAxisRenderer implements IAxisRenderer<RenderingOptions> {
     ctx.textAlign = 'center';
 
     let maxTextWidth = 0;
-    for (let value of this.labelGenerator.generate(options.abscissaRange[0], options.abscissaRange[1], 20).labels) {
+    for (let value of (this.cachedLabelProps || this.labelGenerator.generate(options.abscissaRange[0], options.abscissaRange[1], 20)).labels) {
       const width = ctx.measureText(this.formatter(value)).width;
       maxTextWidth = Math.max(maxTextWidth, width);
     }
@@ -81,7 +80,30 @@ class AbscissaLocalAxisRenderer implements IAxisRenderer<RenderingOptions> {
     const minTextSpacing = 20 * options.pixelRatio;
     const maxLabels = Math.floor((options.displaySize[0] * options.pixelRatio + minTextSpacing) / (maxTextWidth + minTextSpacing));
 
-    const labelProps = ExtendedWilkinson.generate(options.abscissaRange[0], options.abscissaRange[1], maxLabels);
+    // We only update cached labels if the zoom factor is changed. Otherwise, just use the properties to generate
+    // from whatever we have cached.
+    if (this.cachedLabelProps === undefined || this.cachedRenderingOptions.zoomRatios[0] != options.zoomRatios[0]) {
+      this.cachedLabelProps = ExtendedWilkinson.generate(options.abscissaRange[0], options.abscissaRange[1], maxLabels);
+    } else {
+      this.cachedLabelProps.labels = [];
+
+      // This ugly branch is necessary to avoid float point overflow
+      if (options.abscissaRange[0] < this.cachedLabelProps.min) {
+        let currLabel = options.abscissaRange[0] + Math.abs(options.abscissaRange[0] - this.cachedLabelProps.min) % this.cachedLabelProps.step - this.cachedLabelProps.step;
+        while (currLabel <= options.abscissaRange[1]) {
+          this.cachedLabelProps.labels.push(currLabel);
+          currLabel = Number((currLabel + this.cachedLabelProps.step).toPrecision(10));
+        }
+      } else {
+        let currLabel = this.cachedLabelProps.min;
+        while (currLabel <= options.abscissaRange[1]) {
+          if (currLabel >= options.abscissaRange[0])
+            this.cachedLabelProps.labels.push(currLabel);
+
+          currLabel = Number((currLabel + this.cachedLabelProps.step).toPrecision(10));
+        }
+      }
+    }
 
     const actualWidth = options.displaySize[0] - options.canvasBounds[2] - options.canvasBounds[3];
     const range = options.abscissaRange[1] - options.abscissaRange[0];
@@ -91,7 +113,7 @@ class AbscissaLocalAxisRenderer implements IAxisRenderer<RenderingOptions> {
     ctx.moveTo(0, options.pixelRatio);
     ctx.lineTo(this.canvas.width, options.pixelRatio);
 
-    labelProps.labels.forEach(value => {
+    this.cachedLabelProps.labels.forEach(value => {
       const label = this.formatter(value);
 
       const xPos = calcX(value, step, options) * options.pixelRatio;
@@ -105,7 +127,7 @@ class AbscissaLocalAxisRenderer implements IAxisRenderer<RenderingOptions> {
     this.cachedActualWidth = actualWidth;
     this.cachedStep = step;
     this.cachedRenderingOptions.abscissaRange = options.abscissaRange;
-    this.cachedLabelProps = labelProps;
+    this.cachedRenderingOptions.zoomRatios[0] = options.zoomRatios[0];
 
     ctx.stroke();
 

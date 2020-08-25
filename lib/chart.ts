@@ -142,7 +142,7 @@ export class Chart implements IChart {
     // this.ordinatesContainer.addEventListener('mouseleave', () => ordinatesResizeStarted = false);
   }
 
-  addRow(height: 'auto' | string) {
+  addRow(height: 'auto' | string, title?: string) {
     const rowElement = this.createRow();
 
     if (height === 'auto')
@@ -167,6 +167,19 @@ export class Chart implements IChart {
     this.renderingOptions.pointDistances[1].push(1);
 
     this.gridRenderers.push(new GridRenderer(this.rows[row], row));
+
+    if (title !== undefined) {
+      const titleWrapper = document.createElement('div');
+      const titleElement = document.createElement('h2');
+      titleElement.innerText = title;
+
+      titleWrapper.classList.add('au-section-title');
+      titleWrapper.appendChild(titleElement);
+
+      this.rows[row].prepend(titleWrapper);
+      this.rows[row].style.setProperty('--au-chart-row', '2');
+      this.rows[row].classList.add('au-title-visible');
+    }
   }
 
   addTimeSeries(row: number = 0): TimeSeries {
@@ -323,8 +336,9 @@ export class Chart implements IChart {
   }
 
   private createRow(): HTMLElement {
-    const row = document.createElement('div');
+    let row = document.createElement('div');
     row.classList.add('au-row');
+
     return row;
   }
 }
