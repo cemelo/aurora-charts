@@ -24,6 +24,8 @@ export interface RenderingStyle {
   axisStrokeStyle: string | CanvasPattern | CanvasGradient;
   axisFont: string;
   gridStrokeStyle: string | CanvasPattern | CanvasGradient;
+  crossStrokeStyle: string | CanvasPattern | CanvasGradient;
+  crossLineWidth: number;
 }
 
 export class RenderingOptions {
@@ -42,6 +44,7 @@ export class RenderingOptions {
   displaySize: [Width, Height];
 
   cursorPosition: [Horizontal, Vertical];
+  cursorHoveredRow: number;
 
   style: RenderingStyle;
 
@@ -56,10 +59,13 @@ export class RenderingOptions {
     this.zoomRatios = [1, [1]];
     this.displayOffset = [0, 0];
     this.cursorPosition = [0, 0];
+    this.cursorHoveredRow = -1;
     this.style = {
       axisFont: `${12 * this.pixelRatio}px system-ui, sans-serif`,
       axisStrokeStyle: 'rgba(87, 87, 87, 1)',
       gridStrokeStyle: 'rgba(146, 146, 146, 1)',
+      crossStrokeStyle: 'rgb(0, 0, 0)',
+      crossLineWidth: 1 * this.pixelRatio,
     };
   }
 }

@@ -1,7 +1,7 @@
 import {IAxisRenderer} from '../api/chart-api';
 import {RenderingOptions} from '../api/rendering-api';
 import {ExtendedWilkinson} from '../labeling/ext-wilkinson';
-import {calcY} from '../util/coordinates';
+import {calcOrdinate, calcY} from '../util/coordinates';
 import {shallowArrayCompare} from '../util/comparison';
 import {ILabelGenerator, ILabelProps} from '../api/labeling-api';
 
@@ -111,6 +111,16 @@ class OrdinatesLocalAxisRenderer implements IAxisRenderer<RenderingOptions> {
     this.cachedLabelProps = labelProps;
 
     ctx.stroke();
+
+    // Draw reference
+    if (options.cursorHoveredRow === this.row) {
+      const actualHeight = this.canvas.height - options.canvasBounds[0] - options.canvasBounds[1];
+      const currValue = calcOrdinate(options.cursorPosition[1], this.row, actualHeight, options);
+
+      // Rectangle
+      ctx.fillRect(0, options.cursorPosition[1] - 12, this.canvas.width, 24);
+      ctx.fillText(this.formatter(currValue), 5, options.cursorPosition[1]);
+    }
 
     return this.cachedLabelProps;
   }

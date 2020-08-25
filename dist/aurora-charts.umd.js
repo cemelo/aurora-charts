@@ -16,10 +16,13 @@
             this.zoomRatios = [1, [1]];
             this.displayOffset = [0, 0];
             this.cursorPosition = [0, 0];
+            this.cursorHoveredRow = -1;
             this.style = {
                 axisFont: `${12 * this.pixelRatio}px system-ui, sans-serif`,
                 axisStrokeStyle: 'rgba(87, 87, 87, 1)',
                 gridStrokeStyle: 'rgba(146, 146, 146, 1)',
+                crossStrokeStyle: 'rgb(0, 0, 0)',
+                crossLineWidth: 1 * this.pixelRatio,
             };
         }
     }
@@ -55,6 +58,11 @@
     }
     function calcY(row, height, value, step, options) {
         return height + options.canvasBounds[0] - ((value - options.ordinatesRanges[row][0]) * step);
+    }
+    function calcOrdinate(pos, row, height, options) {
+        const range = options.ordinatesRanges[row][1] - options.ordinatesRanges[row][0];
+        const step = height / range;
+        return options.ordinatesRanges[row][0] - ((pos - height - options.canvasBounds[0]) / step);
     }
 
     class TimeSeries extends EventSource {
@@ -694,6 +702,14 @@
             this.cachedRenderingOptions.ordinatesRanges[this.row] = options.ordinatesRanges[this.row];
             this.cachedLabelProps = labelProps;
             ctx.stroke();
+            // Draw reference
+            if (options.cursorHoveredRow === this.row) {
+                const actualHeight = this.canvas.height - options.canvasBounds[0] - options.canvasBounds[1];
+                const currValue = calcOrdinate(options.cursorPosition[1], this.row, actualHeight, options);
+                // Rectangle
+                ctx.fillRect(0, options.cursorPosition[1] - 12, this.canvas.width, 24);
+                ctx.fillText(this.formatter(currValue), 5, options.cursorPosition[1]);
+            }
             return this.cachedLabelProps;
         }
         resize(width, height, options) {
@@ -717,10 +733,13 @@
 
     class GridRenderer {
         constructor(container, row) {
-            this.canvas = document.createElement('canvas');
-            this.canvas.classList.add('au-grid');
-            container.appendChild(this.canvas);
-            this.target = new GridLocalRenderer(this.canvas, row);
+            this.crossCanvas = document.createElement('canvas');
+            this.crossCanvas.classList.add('au-grid', 'au-cross');
+            this.gridCanvas = document.createElement('canvas');
+            this.gridCanvas.classList.add('au-grid');
+            container.appendChild(this.crossCanvas);
+            container.appendChild(this.gridCanvas);
+            this.target = new GridLocalRenderer(this.crossCanvas, this.gridCanvas, row);
             this.row = row;
         }
         render(options) {
@@ -731,15 +750,16 @@
         }
     }
     class GridLocalRenderer {
-        constructor(canvas, row) {
+        constructor(crossCanvas, gridCanvas, row) {
             this.cachedRenderingOptions = new RenderingOptions();
-            this.canvas = canvas;
+            this.crossCanvas = crossCanvas;
+            this.gridCanvas = gridCanvas;
             this.row = row;
         }
         render(options) {
             var _a, _b, _c, _d, _e, _f;
-            const shouldRedrawGrid = this.canvas.width !== this.canvas.offsetWidth * options.pixelRatio ||
-                this.canvas.height !== this.canvas.offsetHeight * options.pixelRatio ||
+            const shouldRedrawGrid = this.gridCanvas.width !== this.gridCanvas.offsetWidth * options.pixelRatio ||
+                this.gridCanvas.height !== this.gridCanvas.offsetHeight * options.pixelRatio ||
                 !shallowArrayCompare(options.cursorPosition, this.cachedRenderingOptions.cursorPosition) ||
                 !shallowArrayCompare((_a = options.abscissaLabelProps) === null || _a === void 0 ? void 0 : _a.labels, (_b = this.cachedAbscissaLabels) === null || _b === void 0 ? void 0 : _b.labels) ||
                 !shallowArrayCompare((_c = options.ordinatesLabelProps) === null || _c === void 0 ? void 0 : _c.labels, (_d = this.cachedOrdinateLabels) === null || _d === void 0 ? void 0 : _d.labels) ||
@@ -747,40 +767,63 @@
                 !shallowArrayCompare(options.ordinatesRanges[this.row], this.cachedRenderingOptions.ordinatesRanges[this.row]);
             if (!shouldRedrawGrid)
                 return;
-            this.canvas.height = this.canvas.offsetHeight * options.pixelRatio;
-            this.canvas.width = this.canvas.offsetWidth * options.pixelRatio;
-            const ctx = this.canvas.getContext('2d');
-            ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-            ctx.beginPath();
-            // ctx.font = '48px system-ui, sans-serif';
-            // ctx.fillText("TEST", 40, 40);
+            this.gridCanvas.height = this.gridCanvas.offsetHeight * options.pixelRatio;
+            this.gridCanvas.width = this.gridCanvas.offsetWidth * options.pixelRatio;
+            this.crossCanvas.height = this.crossCanvas.offsetHeight * options.pixelRatio;
+            this.crossCanvas.width = this.crossCanvas.offsetWidth * options.pixelRatio;
+            const ctxGrid = this.gridCanvas.getContext('2d');
+            ctxGrid.clearRect(0, 0, this.gridCanvas.width, this.gridCanvas.height);
+            ctxGrid.beginPath();
             this.cachedAbscissaLabels = options.abscissaLabelProps;
             this.cachedOrdinateLabels = options.ordinatesLabelProps;
             // Grid
-            ctx.strokeStyle = options.style.gridStrokeStyle;
-            const actualWidth = this.canvas.width - options.canvasBounds[2] - options.canvasBounds[3];
+            ctxGrid.strokeStyle = options.style.gridStrokeStyle;
+            const actualWidth = this.gridCanvas.width - options.canvasBounds[2] - options.canvasBounds[3];
             const aRange = options.abscissaRange[1] - options.abscissaRange[0];
             const aStep = actualWidth / aRange;
             (_e = this.cachedAbscissaLabels) === null || _e === void 0 ? void 0 : _e.labels.forEach(value => {
                 const xPos = calcX(value, aStep, options);
-                if (xPos > this.canvas.width ||
+                if (xPos > this.gridCanvas.width ||
                     xPos < 0)
                     return;
-                ctx.moveTo(xPos, 0);
-                ctx.lineTo(xPos, this.canvas.height);
+                ctxGrid.moveTo(xPos, 0);
+                ctxGrid.lineTo(xPos, this.gridCanvas.height);
             });
-            const actualHeight = this.canvas.offsetHeight - options.canvasBounds[0] - options.canvasBounds[1];
+            const actualHeight = this.gridCanvas.offsetHeight - options.canvasBounds[0] - options.canvasBounds[1];
             const oRange = options.ordinatesRanges[this.row][1] - options.ordinatesRanges[this.row][0];
             const oStep = actualHeight / oRange;
             (_f = this.cachedOrdinateLabels) === null || _f === void 0 ? void 0 : _f.labels.forEach(value => {
                 const yPos = calcY(this.row, actualHeight, value, oStep, options) * options.pixelRatio;
-                if (yPos > this.canvas.height ||
+                if (yPos > this.gridCanvas.height ||
                     yPos < 0)
                     return;
-                ctx.moveTo(0, yPos);
-                ctx.lineTo(this.canvas.width + 1, yPos);
+                ctxGrid.moveTo(0, yPos);
+                ctxGrid.lineTo(this.gridCanvas.width + 1, yPos);
             });
-            ctx.stroke();
+            ctxGrid.stroke();
+            // Cross
+            if (options.cursorPosition[0] === 0 || options.cursorPosition[1] === 0) {
+                return;
+            }
+            const ctxCross = this.crossCanvas.getContext('2d');
+            ctxCross.clearRect(0, 0, this.crossCanvas.width, this.crossCanvas.height);
+            ctxCross.beginPath();
+            if (ctxCross.getLineDash().length === 0) {
+                ctxCross.setLineDash([3 * options.pixelRatio, 3 * options.pixelRatio]);
+                ctxCross.strokeStyle = options.style.crossStrokeStyle;
+                ctxCross.lineWidth = options.style.crossLineWidth;
+            }
+            if (options.cursorHoveredRow === this.row) {
+                // Draw horizontal line
+                const yPos = options.cursorPosition[1] * options.pixelRatio;
+                ctxCross.moveTo(0, yPos);
+                ctxCross.lineTo(this.gridCanvas.width, yPos);
+            }
+            // Draw vertical line
+            const xPos = options.cursorPosition[0] * options.pixelRatio;
+            ctxCross.moveTo(xPos, 0);
+            ctxCross.lineTo(xPos, this.gridCanvas.height);
+            ctxCross.stroke();
         }
         resize(width, height, options) {
             this.render(options);
@@ -814,16 +857,18 @@
                 this.views[0].offsetHeight,
             ];
         }
-        addViewEventListeners(view) {
+        addViewEventListeners(view, row) {
             let chartMoveStarted = false;
             view.addEventListener('mousedown', (e) => {
                 chartMoveStarted = true;
                 view.classList.add('au-moving');
                 this.renderingOptions.cursorPosition = [0, 0];
+                this.renderingOptions.cursorHoveredRow = -1;
                 requestAnimationFrame(() => this.refreshViews());
                 e.preventDefault();
             });
             view.addEventListener('mousemove', (e) => {
+                this.renderingOptions.cursorHoveredRow = row;
                 if (chartMoveStarted) {
                     this.renderingOptions.displayOffset[0] -= e.movementX;
                     requestAnimationFrame(() => this.refreshViews());
@@ -843,12 +888,14 @@
                     e.offsetX,
                     e.offsetY,
                 ];
+                this.renderingOptions.cursorHoveredRow = row;
                 requestAnimationFrame(() => this.refreshViews());
             });
             view.addEventListener('mouseleave', (e) => {
                 chartMoveStarted = false;
                 view.classList.remove('au-moving');
                 this.renderingOptions.cursorPosition = [0, 0];
+                this.renderingOptions.cursorHoveredRow = -1;
                 requestAnimationFrame(() => this.refreshViews());
             });
             view.addEventListener('wheel', (e) => {
@@ -901,10 +948,10 @@
             const row = this.rows.length - 1;
             const newView = document.createElement('div');
             newView.className = 'au-view';
-            newView.style.zIndex = '999';
+            newView.style.zIndex = '1001';
             this.views.push(newView);
             this.rows[row].appendChild(newView);
-            this.addViewEventListeners(newView);
+            this.addViewEventListeners(newView, row);
             this.ordinatesRenderers.push(new OrdinatesAxisRenderer(this.rows[row], row));
             this.renderingOptions.ordinatesRanges.push([0, 0]);
             this.renderingOptions.zoomRatios[1].push(1);

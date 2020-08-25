@@ -75,6 +75,9 @@
   width: 100%;
   z-index: 0;
 }
+.au-chart .au-grid.au-cross {
+  z-index: 1000;
+}
 .au-chart-base {
   grid-column: 1 / span 2;
   grid-row: 1 / span 2;

@@ -51,7 +51,7 @@ export class Chart implements IChart {
     ];
   }
 
-  private addViewEventListeners(view: HTMLElement) {
+  private addViewEventListeners(view: HTMLElement, row: number) {
     let chartMoveStarted = false;
 
     view.addEventListener('mousedown', (e) => {
@@ -59,12 +59,15 @@ export class Chart implements IChart {
 
       view.classList.add('au-moving');
       this.renderingOptions.cursorPosition = [0, 0];
+      this.renderingOptions.cursorHoveredRow = -1;
       requestAnimationFrame(() => this.refreshViews());
 
       e.preventDefault();
     });
 
     view.addEventListener('mousemove', (e) => {
+      this.renderingOptions.cursorHoveredRow = row;
+
       if (chartMoveStarted) {
         this.renderingOptions.displayOffset[0] -= e.movementX;
         requestAnimationFrame(() => this.refreshViews());
@@ -86,6 +89,7 @@ export class Chart implements IChart {
         e.offsetX,
         e.offsetY,
       ];
+      this.renderingOptions.cursorHoveredRow = row;
       requestAnimationFrame(() => this.refreshViews());
     });
 
@@ -94,6 +98,7 @@ export class Chart implements IChart {
       view.classList.remove('au-moving');
 
       this.renderingOptions.cursorPosition = [0, 0];
+      this.renderingOptions.cursorHoveredRow = -1;
       requestAnimationFrame(() => this.refreshViews());
     });
 
@@ -156,10 +161,10 @@ export class Chart implements IChart {
 
     const newView = document.createElement('div');
     newView.className = 'au-view';
-    newView.style.zIndex = '999';
+    newView.style.zIndex = '1001';
     this.views.push(newView);
     this.rows[row].appendChild(newView);
-    this.addViewEventListeners(newView);
+    this.addViewEventListeners(newView, row);
 
     this.ordinatesRenderers.push(new OrdinatesAxisRenderer(this.rows[row], row));
     this.renderingOptions.ordinatesRanges.push([0, 0]);
