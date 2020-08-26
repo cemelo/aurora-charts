@@ -117,22 +117,55 @@ class OrdinatesLocalAxisRenderer implements IAxisRenderer<RenderingOptions> {
 
     // Draw reference
     if (options.cursorHoveredRow === this.row && options.cursorPosition[1] !== 0) {
-      const actualHeight = this.canvas.height - options.canvasBounds[0] - options.canvasBounds[1];
+      const actualHeight = this.canvas.offsetHeight - options.canvasBounds[0] - options.canvasBounds[1];
       const currValue = calcOrdinate(options.cursorPosition[1], this.row, actualHeight, options);
 
-      // Rectangle
-      ctx.fillRect(
+      const labelWidth = ctx.measureText(this.formatter(currValue)).width;
+
+      const rectTopY = Math.max(
         0,
-        (options.cursorPosition[1] - fontHeight / 2 - 5) * options.pixelRatio,
-        this.canvas.width,
-        (fontHeight + 10) * options.pixelRatio
+        Math.min(
+          (this.canvas.offsetHeight - fontHeight - 10) * options.pixelRatio,
+          (options.cursorPosition[1] - fontHeight / 2 - 5) * options.pixelRatio
+        )
       );
 
+      const rectMiddleY = Math.max(
+        (fontHeight / 2 + 5) * options.pixelRatio,
+        Math.min(
+          (this.canvas.offsetHeight - fontHeight / 2 - 5) * options.pixelRatio,
+          options.cursorPosition[1] * options.pixelRatio,
+        )
+      );
+
+      const rectBottomY = Math.max(
+        (fontHeight + 10) * options.pixelRatio,
+        Math.min(
+          (this.canvas.offsetHeight - 1) * options.pixelRatio,
+          (options.cursorPosition[1] + fontHeight / 2 + 5) * options.pixelRatio
+        )
+      );
+
+      ctx.beginPath();
+      ctx.moveTo(0, options.cursorPosition[1] * options.pixelRatio);
+      ctx.lineTo(5 * options.pixelRatio, rectTopY);
+      ctx.lineTo(labelWidth + 15 * options.pixelRatio, rectTopY);
+      ctx.lineTo(labelWidth + 15 * options.pixelRatio, rectBottomY);
+      ctx.lineTo(5 * options.pixelRatio, rectBottomY);
+      ctx.closePath();
+
+      ctx.fillStyle = 'rgb(41, 100, 148)';
+
+      ctx.fill('nonzero');
+      ctx.stroke();
+
       ctx.fillStyle = '#FFFFFF';
+
       ctx.fillText(
         this.formatter(currValue),
-        5 * options.pixelRatio,
-        options.cursorPosition[1] * options.pixelRatio,
+        10 * options.pixelRatio,
+        rectMiddleY,
+        this.canvas.width - 15 * options.pixelRatio,
       );
     }
 

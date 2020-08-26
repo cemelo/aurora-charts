@@ -28,6 +28,8 @@
         let series = chart.addCandleStickSeries();
         let series2 = chart.addTimeSeries(1);
 
+        chart.setOrdinatesLabelFormatter((n) => n.toFixed(2));
+
         let data = [];
         let data2 = [];
 

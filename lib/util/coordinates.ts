@@ -19,5 +19,5 @@ export function calcOrdinate(pos: number, row: number, height: number, options: 
   const range = options.ordinatesRanges[row][1] - options.ordinatesRanges[row][0];
   const step = height / range;
 
-  return options.ordinatesRanges[row][0] - ((pos - height - options.canvasBounds[0]) / step);
+  return options.ordinatesRanges[row][0] + ((height + options.canvasBounds[0]) - pos) / step;
 }

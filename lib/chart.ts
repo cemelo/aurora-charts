@@ -51,102 +51,6 @@ export class Chart implements IChart {
     ];
   }
 
-  private addViewEventListeners(view: HTMLElement, row: number) {
-    let chartMoveStarted = false;
-
-    view.addEventListener('mousedown', (e) => {
-      chartMoveStarted = true;
-
-      view.classList.add('au-moving');
-      this.renderingOptions.cursorPosition = [0, 0];
-      this.renderingOptions.cursorHoveredRow = -1;
-      requestAnimationFrame(() => this.refreshViews());
-
-      e.preventDefault();
-    });
-
-    view.addEventListener('mousemove', (e) => {
-      this.renderingOptions.cursorHoveredRow = row;
-
-      if (chartMoveStarted) {
-        this.renderingOptions.displayOffset[0] -= e.movementX;
-        requestAnimationFrame(() => this.refreshViews());
-      } else {
-        this.renderingOptions.cursorPosition = [
-          e.offsetX,
-          e.offsetY,
-        ];
-
-        requestAnimationFrame(() => this.refreshViews());
-      }
-    });
-
-    view.addEventListener('mouseup', (e) => {
-      chartMoveStarted = false;
-      view.classList.remove('au-moving');
-
-      this.renderingOptions.cursorPosition = [
-        e.offsetX,
-        e.offsetY,
-      ];
-      this.renderingOptions.cursorHoveredRow = row;
-      requestAnimationFrame(() => this.refreshViews());
-    });
-
-    view.addEventListener('mouseleave', (e) => {
-      chartMoveStarted = false;
-      view.classList.remove('au-moving');
-
-      this.renderingOptions.cursorPosition = [0, 0];
-      this.renderingOptions.cursorHoveredRow = -1;
-      requestAnimationFrame(() => this.refreshViews());
-    });
-
-    view.addEventListener('wheel', (e) => {
-      this.renderingOptions.displayOffset[0] += e.deltaX;
-      requestAnimationFrame(() => this.refreshViews());
-      e.preventDefault();
-    });
-  }
-
-  private addMainEventListeners() {
-    let abscissaResizeStarted = false;
-
-    this.abscissaContainer.addEventListener('mousedown', (event) => {
-      abscissaResizeStarted = true;
-      event.cancelBubble = true;
-    });
-
-    this.abscissaContainer.addEventListener('mousemove', (event) => {
-      if (abscissaResizeStarted) {
-        let zoomOffset = (event.movementX / (this.abscissaContainer.offsetWidth / this.renderingOptions.pixelRatio));
-        this.renderingOptions.zoomRatios[0] -= zoomOffset;
-        requestAnimationFrame(() => this.refreshViews());
-      }
-    });
-
-    this.abscissaContainer.addEventListener('mouseup', () => abscissaResizeStarted = false);
-    this.abscissaContainer.addEventListener('mouseleave', () => abscissaResizeStarted = false);
-
-    // let ordinatesResizeStarted = false;
-    //
-    // this.ordinatesContainer.addEventListener('mousedown', (event) => {
-    //   ordinatesResizeStarted = true;
-    //   event.cancelBubble = true;
-    // });
-    //
-    // this.ordinatesContainer.addEventListener('mousemove', (event) => {
-    //   if (ordinatesResizeStarted) {
-    //     let zoomOffset = ((event.movementY * 8) / this.ordinatesContainer.offsetHeight);
-    //     this.renderingOptions.zoomRatio[1] += zoomOffset;
-    //     requestAnimationFrame(() => this.refreshViews());
-    //   }
-    // });
-    //
-    // this.ordinatesContainer.addEventListener('mouseup', () => ordinatesResizeStarted = false);
-    // this.ordinatesContainer.addEventListener('mouseleave', () => ordinatesResizeStarted = false);
-  }
-
   addRow(height: 'auto' | string, title?: string) {
     const rowElement = this.createRow();
 
@@ -215,6 +119,18 @@ export class Chart implements IChart {
 
     candleStickSeries.resize(this.views[row].offsetWidth, this.views[row].offsetHeight, this.renderingOptions);
     return candleStickSeries;
+  }
+
+  setAbscissaLabelFormatter(f: (_: number) => string) {
+    this.abscissaRenderer.setLabelFormatter(f);
+  }
+
+  setOrdinatesLabelFormatter(f: (_: number) => string, row?: number) {
+    if (row == null) {
+      this.ordinatesRenderers.forEach(r => r.setLabelFormatter(f));
+    } else if (this.ordinatesRenderers.length > row) {
+      this.ordinatesRenderers[row].setLabelFormatter(f);
+    }
   }
 
   private refreshViews(fitAbscissaAxis: boolean = false, fitOrdinateAxis: boolean = true) {
@@ -345,5 +261,83 @@ export class Chart implements IChart {
     row.classList.add('au-row');
 
     return row;
+  }
+
+  private addViewEventListeners(view: HTMLElement, row: number) {
+    let chartMoveStarted = false;
+
+    view.addEventListener('mousedown', (e) => {
+      chartMoveStarted = true;
+
+      view.classList.add('au-moving');
+      this.renderingOptions.cursorPosition = [0, 0];
+      this.renderingOptions.cursorHoveredRow = -1;
+      requestAnimationFrame(() => this.refreshViews());
+
+      e.preventDefault();
+    });
+
+    view.addEventListener('mousemove', (e) => {
+      this.renderingOptions.cursorHoveredRow = row;
+
+      if (chartMoveStarted) {
+        this.renderingOptions.displayOffset[0] -= e.movementX;
+        requestAnimationFrame(() => this.refreshViews());
+      } else {
+        this.renderingOptions.cursorPosition = [
+          e.offsetX,
+          e.offsetY,
+        ];
+
+        requestAnimationFrame(() => this.refreshViews());
+      }
+    });
+
+    view.addEventListener('mouseup', (e) => {
+      chartMoveStarted = false;
+      view.classList.remove('au-moving');
+
+      this.renderingOptions.cursorPosition = [
+        e.offsetX,
+        e.offsetY,
+      ];
+      this.renderingOptions.cursorHoveredRow = row;
+      requestAnimationFrame(() => this.refreshViews());
+    });
+
+    view.addEventListener('mouseleave', (e) => {
+      chartMoveStarted = false;
+      view.classList.remove('au-moving');
+
+      this.renderingOptions.cursorPosition = [0, 0];
+      this.renderingOptions.cursorHoveredRow = -1;
+      requestAnimationFrame(() => this.refreshViews());
+    });
+
+    view.addEventListener('wheel', (e) => {
+      this.renderingOptions.displayOffset[0] += e.deltaX;
+      requestAnimationFrame(() => this.refreshViews());
+      e.preventDefault();
+    });
+  }
+
+  private addMainEventListeners() {
+    let abscissaResizeStarted = false;
+
+    this.abscissaContainer.addEventListener('mousedown', (event) => {
+      abscissaResizeStarted = true;
+      event.cancelBubble = true;
+    });
+
+    this.abscissaContainer.addEventListener('mousemove', (event) => {
+      if (abscissaResizeStarted) {
+        let zoomOffset = (event.movementX / (this.abscissaContainer.offsetWidth / this.renderingOptions.pixelRatio));
+        this.renderingOptions.zoomRatios[0] -= zoomOffset;
+        requestAnimationFrame(() => this.refreshViews());
+      }
+    });
+
+    this.abscissaContainer.addEventListener('mouseup', () => abscissaResizeStarted = false);
+    this.abscissaContainer.addEventListener('mouseleave', () => abscissaResizeStarted = false);
   }
 }

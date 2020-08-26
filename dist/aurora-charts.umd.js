@@ -62,7 +62,7 @@
     function calcOrdinate(pos, row, height, options) {
         const range = options.ordinatesRanges[row][1] - options.ordinatesRanges[row][0];
         const step = height / range;
-        return options.ordinatesRanges[row][0] - ((pos - height - options.canvasBounds[0]) / step);
+        return options.ordinatesRanges[row][0] + ((height + options.canvasBounds[0]) - pos) / step;
     }
 
     class TimeSeries extends EventSource {
@@ -706,12 +706,24 @@
             ctx.stroke();
             // Draw reference
             if (options.cursorHoveredRow === this.row && options.cursorPosition[1] !== 0) {
-                const actualHeight = this.canvas.height - options.canvasBounds[0] - options.canvasBounds[1];
+                const actualHeight = this.canvas.offsetHeight - options.canvasBounds[0] - options.canvasBounds[1];
                 const currValue = calcOrdinate(options.cursorPosition[1], this.row, actualHeight, options);
-                // Rectangle
-                ctx.fillRect(0, (options.cursorPosition[1] - fontHeight / 2 - 5) * options.pixelRatio, this.canvas.width, (fontHeight + 10) * options.pixelRatio);
+                const labelWidth = ctx.measureText(this.formatter(currValue)).width;
+                const rectTopY = Math.max(0, Math.min((this.canvas.offsetHeight - fontHeight - 10) * options.pixelRatio, (options.cursorPosition[1] - fontHeight / 2 - 5) * options.pixelRatio));
+                const rectMiddleY = Math.max((fontHeight / 2 + 5) * options.pixelRatio, Math.min((this.canvas.offsetHeight - fontHeight / 2 - 5) * options.pixelRatio, options.cursorPosition[1] * options.pixelRatio));
+                const rectBottomY = Math.max((fontHeight + 10) * options.pixelRatio, Math.min((this.canvas.offsetHeight - 1) * options.pixelRatio, (options.cursorPosition[1] + fontHeight / 2 + 5) * options.pixelRatio));
+                ctx.beginPath();
+                ctx.moveTo(0, options.cursorPosition[1] * options.pixelRatio);
+                ctx.lineTo(5 * options.pixelRatio, rectTopY);
+                ctx.lineTo(labelWidth + 15 * options.pixelRatio, rectTopY);
+                ctx.lineTo(labelWidth + 15 * options.pixelRatio, rectBottomY);
+                ctx.lineTo(5 * options.pixelRatio, rectBottomY);
+                ctx.closePath();
+                ctx.fillStyle = 'rgb(41, 100, 148)';
+                ctx.fill('nonzero');
+                ctx.stroke();
                 ctx.fillStyle = '#FFFFFF';
-                ctx.fillText(this.formatter(currValue), 5 * options.pixelRatio, options.cursorPosition[1] * options.pixelRatio);
+                ctx.fillText(this.formatter(currValue), 10 * options.pixelRatio, rectMiddleY, this.canvas.width - 15 * options.pixelRatio);
             }
             return this.cachedLabelProps;
         }
@@ -860,86 +872,6 @@
                 this.views[0].offsetHeight,
             ];
         }
-        addViewEventListeners(view, row) {
-            let chartMoveStarted = false;
-            view.addEventListener('mousedown', (e) => {
-                chartMoveStarted = true;
-                view.classList.add('au-moving');
-                this.renderingOptions.cursorPosition = [0, 0];
-                this.renderingOptions.cursorHoveredRow = -1;
-                requestAnimationFrame(() => this.refreshViews());
-                e.preventDefault();
-            });
-            view.addEventListener('mousemove', (e) => {
-                this.renderingOptions.cursorHoveredRow = row;
-                if (chartMoveStarted) {
-                    this.renderingOptions.displayOffset[0] -= e.movementX;
-                    requestAnimationFrame(() => this.refreshViews());
-                }
-                else {
-                    this.renderingOptions.cursorPosition = [
-                        e.offsetX,
-                        e.offsetY,
-                    ];
-                    requestAnimationFrame(() => this.refreshViews());
-                }
-            });
-            view.addEventListener('mouseup', (e) => {
-                chartMoveStarted = false;
-                view.classList.remove('au-moving');
-                this.renderingOptions.cursorPosition = [
-                    e.offsetX,
-                    e.offsetY,
-                ];
-                this.renderingOptions.cursorHoveredRow = row;
-                requestAnimationFrame(() => this.refreshViews());
-            });
-            view.addEventListener('mouseleave', (e) => {
-                chartMoveStarted = false;
-                view.classList.remove('au-moving');
-                this.renderingOptions.cursorPosition = [0, 0];
-                this.renderingOptions.cursorHoveredRow = -1;
-                requestAnimationFrame(() => this.refreshViews());
-            });
-            view.addEventListener('wheel', (e) => {
-                this.renderingOptions.displayOffset[0] += e.deltaX;
-                requestAnimationFrame(() => this.refreshViews());
-                e.preventDefault();
-            });
-        }
-        addMainEventListeners() {
-            let abscissaResizeStarted = false;
-            this.abscissaContainer.addEventListener('mousedown', (event) => {
-                abscissaResizeStarted = true;
-                event.cancelBubble = true;
-            });
-            this.abscissaContainer.addEventListener('mousemove', (event) => {
-                if (abscissaResizeStarted) {
-                    let zoomOffset = (event.movementX / (this.abscissaContainer.offsetWidth / this.renderingOptions.pixelRatio));
-                    this.renderingOptions.zoomRatios[0] -= zoomOffset;
-                    requestAnimationFrame(() => this.refreshViews());
-                }
-            });
-            this.abscissaContainer.addEventListener('mouseup', () => abscissaResizeStarted = false);
-            this.abscissaContainer.addEventListener('mouseleave', () => abscissaResizeStarted = false);
-            // let ordinatesResizeStarted = false;
-            //
-            // this.ordinatesContainer.addEventListener('mousedown', (event) => {
-            //   ordinatesResizeStarted = true;
-            //   event.cancelBubble = true;
-            // });
-            //
-            // this.ordinatesContainer.addEventListener('mousemove', (event) => {
-            //   if (ordinatesResizeStarted) {
-            //     let zoomOffset = ((event.movementY * 8) / this.ordinatesContainer.offsetHeight);
-            //     this.renderingOptions.zoomRatio[1] += zoomOffset;
-            //     requestAnimationFrame(() => this.refreshViews());
-            //   }
-            // });
-            //
-            // this.ordinatesContainer.addEventListener('mouseup', () => ordinatesResizeStarted = false);
-            // this.ordinatesContainer.addEventListener('mouseleave', () => ordinatesResizeStarted = false);
-        }
         addRow(height, title) {
             const rowElement = this.createRow();
             if (height === 'auto')
@@ -992,6 +924,17 @@
             this.dataSources.push(candleStickSeries);
             candleStickSeries.resize(this.views[row].offsetWidth, this.views[row].offsetHeight, this.renderingOptions);
             return candleStickSeries;
+        }
+        setAbscissaLabelFormatter(f) {
+            this.abscissaRenderer.setLabelFormatter(f);
+        }
+        setOrdinatesLabelFormatter(f, row) {
+            if (row == null) {
+                this.ordinatesRenderers.forEach(r => r.setLabelFormatter(f));
+            }
+            else if (this.ordinatesRenderers.length > row) {
+                this.ordinatesRenderers[row].setLabelFormatter(f);
+            }
         }
         refreshViews(fitAbscissaAxis = false, fitOrdinateAxis = true) {
             if (this.rows.length === 0)
@@ -1085,6 +1028,69 @@
             let row = document.createElement('div');
             row.classList.add('au-row');
             return row;
+        }
+        addViewEventListeners(view, row) {
+            let chartMoveStarted = false;
+            view.addEventListener('mousedown', (e) => {
+                chartMoveStarted = true;
+                view.classList.add('au-moving');
+                this.renderingOptions.cursorPosition = [0, 0];
+                this.renderingOptions.cursorHoveredRow = -1;
+                requestAnimationFrame(() => this.refreshViews());
+                e.preventDefault();
+            });
+            view.addEventListener('mousemove', (e) => {
+                this.renderingOptions.cursorHoveredRow = row;
+                if (chartMoveStarted) {
+                    this.renderingOptions.displayOffset[0] -= e.movementX;
+                    requestAnimationFrame(() => this.refreshViews());
+                }
+                else {
+                    this.renderingOptions.cursorPosition = [
+                        e.offsetX,
+                        e.offsetY,
+                    ];
+                    requestAnimationFrame(() => this.refreshViews());
+                }
+            });
+            view.addEventListener('mouseup', (e) => {
+                chartMoveStarted = false;
+                view.classList.remove('au-moving');
+                this.renderingOptions.cursorPosition = [
+                    e.offsetX,
+                    e.offsetY,
+                ];
+                this.renderingOptions.cursorHoveredRow = row;
+                requestAnimationFrame(() => this.refreshViews());
+            });
+            view.addEventListener('mouseleave', (e) => {
+                chartMoveStarted = false;
+                view.classList.remove('au-moving');
+                this.renderingOptions.cursorPosition = [0, 0];
+                this.renderingOptions.cursorHoveredRow = -1;
+                requestAnimationFrame(() => this.refreshViews());
+            });
+            view.addEventListener('wheel', (e) => {
+                this.renderingOptions.displayOffset[0] += e.deltaX;
+                requestAnimationFrame(() => this.refreshViews());
+                e.preventDefault();
+            });
+        }
+        addMainEventListeners() {
+            let abscissaResizeStarted = false;
+            this.abscissaContainer.addEventListener('mousedown', (event) => {
+                abscissaResizeStarted = true;
+                event.cancelBubble = true;
+            });
+            this.abscissaContainer.addEventListener('mousemove', (event) => {
+                if (abscissaResizeStarted) {
+                    let zoomOffset = (event.movementX / (this.abscissaContainer.offsetWidth / this.renderingOptions.pixelRatio));
+                    this.renderingOptions.zoomRatios[0] -= zoomOffset;
+                    requestAnimationFrame(() => this.refreshViews());
+                }
+            });
+            this.abscissaContainer.addEventListener('mouseup', () => abscissaResizeStarted = false);
+            this.abscissaContainer.addEventListener('mouseleave', () => abscissaResizeStarted = false);
         }
     }
 
