@@ -664,14 +664,16 @@
             this.cachedLabelProps = { labels: [], max: 0, min: 0, step: 0 };
         }
         render(options) {
+            const ctx = this.canvas.getContext('2d');
             const shouldRedraw = this.canvas.width !== this.canvas.offsetWidth * options.pixelRatio ||
                 this.canvas.height !== this.canvas.offsetHeight * options.pixelRatio ||
-                !shallowArrayCompare(options.ordinatesRanges[this.row], this.cachedRenderingOptions.ordinatesRanges[this.row]);
+                !shallowArrayCompare(options.ordinatesRanges[this.row], this.cachedRenderingOptions.ordinatesRanges[this.row]) ||
+                options.cursorPosition[1] === 0 ||
+                options.cursorPosition[1] !== this.cachedRenderingOptions.cursorPosition[1];
             if (!shouldRedraw)
                 return this.cachedLabelProps;
             this.canvas.width = this.canvas.offsetWidth * options.pixelRatio;
             this.canvas.height = this.canvas.offsetHeight * options.pixelRatio;
-            const ctx = this.canvas.getContext('2d');
             ctx.clearRect(0, 0, this.canvas.width * options.pixelRatio, this.canvas.height * options.pixelRatio);
             ctx.beginPath();
             ctx.font = options.style.axisFont;
@@ -703,12 +705,13 @@
             this.cachedLabelProps = labelProps;
             ctx.stroke();
             // Draw reference
-            if (options.cursorHoveredRow === this.row) {
+            if (options.cursorHoveredRow === this.row && options.cursorPosition[1] !== 0) {
                 const actualHeight = this.canvas.height - options.canvasBounds[0] - options.canvasBounds[1];
                 const currValue = calcOrdinate(options.cursorPosition[1], this.row, actualHeight, options);
                 // Rectangle
-                ctx.fillRect(0, options.cursorPosition[1] - 12, this.canvas.width, 24);
-                ctx.fillText(this.formatter(currValue), 5, options.cursorPosition[1]);
+                ctx.fillRect(0, (options.cursorPosition[1] - fontHeight / 2 - 5) * options.pixelRatio, this.canvas.width, (fontHeight + 10) * options.pixelRatio);
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillText(this.formatter(currValue), 5 * options.pixelRatio, options.cursorPosition[1] * options.pixelRatio);
             }
             return this.cachedLabelProps;
         }
